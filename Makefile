@@ -1,8 +1,8 @@
 TilemapGen.exe:
 	csc TilemapGen.cs
 
-start: TilemapGen.exe
+start: clean TilemapGen.exe
 	mono TilemapGen.exe
 
 clean:
-	rm TilemapGen.exe
+	bin/clean
