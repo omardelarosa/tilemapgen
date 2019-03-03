@@ -9,11 +9,15 @@ namespace TilemapGen
             Console.WriteLine("---------------------------");
             Console.WriteLine("-- Map Generator: v0.0.1 --");
             Console.WriteLine("---------------------------");
+
+            Vector2Int size = new Vector2Int(32, 16);
+            Matrix m = new Matrix(size);
+            m.PrintMatrix();
+
             ConsoleKeyInfo cki = Program.Prompt();
             while (cki.Key == ConsoleKey.Enter)
             {
-                Vector2Int size = new Vector2Int(32, 16);
-                Matrix m = new Matrix(size);
+                m = new Matrix(size);
                 m.PrintMatrix();
                 // m.PrintGraphs();
                 cki = Program.Prompt();

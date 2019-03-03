@@ -4,5 +4,6 @@ public enum Tile
     Space,
     Door,
     Path,
-    NullTile
+    NullTile,
+    OutOfBoundsTile
 }

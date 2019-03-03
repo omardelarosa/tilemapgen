@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
-public class Node<T> : INode<Node<T>>
+public class Node : INode<Vector2Int>
 {
     public Guid id;
-    T data;
-    public Node(T d)
+    Vector2Int data;
+    public static Node NULL_NODE = new Node(Vector2Int.NULL_POSITION);
+
+    public Node(Vector2Int d)
     {
         id = Guid.NewGuid();
         data = d;
@@ -15,7 +17,7 @@ public class Node<T> : INode<Node<T>>
         return id;
     }
 
-    public T Read()
+    public Vector2Int Read()
     {
         return data;
     }
@@ -27,5 +29,15 @@ public class Node<T> : INode<Node<T>>
             return "<Node id:" + id + " data:" + data.ToString() + ">";
         }
         return "<Node id:" + id + " data:NULL>";
+    }
+
+    public INode<Vector2Int> GetNullNode()
+    {
+        return Node.NULL_NODE;
+    }
+
+    public bool IsNull()
+    {
+        return this.id == Node.NULL_NODE.id;
     }
 }

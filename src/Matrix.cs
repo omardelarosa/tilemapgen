@@ -9,16 +9,17 @@ public class Matrix
     public const int MAX_REBUILDS = 5;
 
     List<List<Tile>> tilematrix;
-    List<List<Node<Vector2Int>>> nodematrix;
+    List<List<Node>> nodematrix;
     List<Vector2Int> positions;
     List<Vector2Int> borderPositions;
     List<Vector2Int> exitPositions;
+    PathData<Node> pathData;
     private Vector2Int size;
     private int numDoors;
     private int _doorsPlaced = 0;
-    private Node<Vector2Int> nullNode;
+    private Node nullNode;
     private Vector2Int nullPos;
-    Dictionary<Tile, Graph<Node<Vector2Int>>> graphs;
+    Dictionary<Tile, Graph<Node>> graphs;
     Random r;
     public Matrix(Vector2Int size)
     {
@@ -34,8 +35,38 @@ public class Matrix
         {
             Console.WriteLine("Unable to build valid map after " + MAX_REBUILDS + " rebuilds.");
         }
+
+        bool hasPath = BuildPath();
+
+        if (hasPath)
+        {
+            Console.WriteLine("Has a path!");
+        }
+        else
+        {
+            Console.WriteLine("No path found!");
+        }
     }
 
+    bool BuildPath()
+    {
+        Vector2Int source = exitPositions[0];
+        Vector2Int target = exitPositions[1];
+        var graph = graphs[Tile.Space];
+        var sourceNode = NGet(source.x, source.y);
+        var targetNode = NGet(target.x, target.y);
+        var pd = graph.Dijkstra(sourceNode, targetNode);
+        bool hasPath = pd.HasPathTo(targetNode.GetGuid());
+        pathData = pd;
+        if (hasPath)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
     void Reset()
     {
         r = new Random();
@@ -52,8 +83,8 @@ public class Matrix
         // Initialize containers, static values
         Reset();
         numDoors = r.Next(2, 3); // ensures 2 doors. // or 1 to 4 doors
-        nullPos = new Vector2Int(-1, -1);
-        nullNode = new Node<Vector2Int>(nullPos);
+        nullPos = Vector2Int.NULL_POSITION;
+        nullNode = Node.NULL_NODE;
         // Populate Matrix
         BuildEmptyMatrix(size);
         BuildEmptyNodeMatrix(size);
@@ -68,7 +99,7 @@ public class Matrix
     {
         if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
-            return Tile.NullTile;
+            return Tile.OutOfBoundsTile;
         }
         else
         {
@@ -78,7 +109,7 @@ public class Matrix
 
     public bool MSet(int x, int y, Tile t)
     {
-        bool isValidTile = MGet(x, y) != null;
+        bool isValidTile = MGet(x, y) != Tile.OutOfBoundsTile;
         if (isValidTile)
         {
             tilematrix[y][x] = t;
@@ -90,7 +121,7 @@ public class Matrix
         }
     }
 
-    public Node<Vector2Int> NGet(int x, int y)
+    public Node NGet(int x, int y)
     {
         if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
@@ -102,7 +133,7 @@ public class Matrix
         }
     }
 
-    public bool NSet(int x, int y, Node<Vector2Int> n)
+    public bool NSet(int x, int y, Node n)
     {
         bool isValidTile = MGet(x, y) != Tile.NullTile;
         if (isValidTile)
@@ -125,11 +156,11 @@ public class Matrix
             return;
         }
         // Determine paths
-        List<Node<Vector2Int>> doors = graphs[Tile.Door].nodesList;
+        List<Node> doors = graphs[Tile.Door].nodesList;
         exitPositions = new List<Vector2Int>();
-        foreach (Node<Vector2Int> d in doors)
+        foreach (Node d in doors)
         {
-            Node<Vector2Int> adjacentNodeToDoor = GetDoorNeighborSpaces(d);
+            Node adjacentNodeToDoor = GetDoorNeighborSpaces(d);
 
             if (adjacentNodeToDoor != null)
             {
@@ -149,11 +180,11 @@ public class Matrix
         int x = s.x;
         int y = s.y;
         size = s;
-        nodematrix = new List<List<Node<Vector2Int>>>();
+        nodematrix = new List<List<Node>>();
         // Rows
         for (int i = 0; i < y; i++)
         {
-            List<Node<Vector2Int>> row = new List<Node<Vector2Int>>();
+            List<Node> row = new List<Node>();
             // Cols
             for (int j = 0; j < x; j++)
             {
@@ -188,18 +219,21 @@ public class Matrix
             tilematrix.Add(row);
         }
     }
-    public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node<Vector2Int>> nodes, Tile t)
+    public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node> nodes, Tile t)
     {
         var edges = new Dictionary<Guid, List<Guid>>();
-        foreach (Node<Vector2Int> n in nodes)
+        foreach (Node n in nodes)
         {
-            var neighbors = GetNeighborGuids(n, t);
-            edges.Add(n.GetGuid(), neighbors);
+            if (n != null)
+            {
+                var neighbors = GetNeighborGuids(n, t);
+                edges.Add(n.GetGuid(), neighbors);
+            }
         }
         return edges;
     }
 
-    Node<Vector2Int> GetDoorNeighborSpaces(Node<Vector2Int> door)
+    Node GetDoorNeighborSpaces(Node door)
     {
         var neighbors = GetNeighborGuids(door, Tile.Space);
         if (neighbors.Count == 0)
@@ -215,7 +249,7 @@ public class Matrix
         }
     }
 
-    List<Guid> GetNeighborGuids(Node<Vector2Int> node, Tile t)
+    List<Guid> GetNeighborGuids(Node node, Tile t)
     {
         List<Guid> neighbors = new List<Guid>();
         List<Vector2Int> neighborPositions = new List<Vector2Int>();
@@ -247,37 +281,35 @@ public class Matrix
         return neighbors;
     }
 
-    public Dictionary<Tile, Graph<Node<Vector2Int>>> MakeGraphs()
+    public Dictionary<Tile, Graph<Node>> MakeGraphs()
     {
-        IDictionary<Tile, List<Node<Vector2Int>>> nodes = new Dictionary<Tile, List<Node<Vector2Int>>>();
+        IDictionary<Tile, List<Node>> nodes = new Dictionary<Tile, List<Node>>();
         IDictionary<Tile, Dictionary<Guid, List<Guid>>> edges = new Dictionary<Tile, Dictionary<Guid, List<Guid>>>();
 
         // Making NullTile
-        nodes.Add(Tile.NullTile, null);
+        nodes.Add(Tile.NullTile, new List<Node>());
         // Making DoorTile
-        nodes.Add(Tile.Door, null);
+        nodes.Add(Tile.Door, new List<Node>());
 
         foreach (Vector2Int p in positions)
         {
             Tile t = MGet(p.x, p.y);
-            Node<Vector2Int> n = new Node<Vector2Int>(p);
+            Node n = new Node(p);
             if (!nodes.ContainsKey(t))
             {
-                nodes.Add(t, new List<Node<Vector2Int>>()); // create nodelist
+                nodes.Add(t, new List<Node>()); // create nodelist
             }
             var list = nodes[t];
             if (list == null)
             {
-                nodes[t] = new List<Node<Vector2Int>>();
+                nodes[t] = new List<Node>();
                 list = nodes[t];
             }
             NSet(p.x, p.y, n); // Adds node to node matrix
             list.Add(n);
         }
 
-        Dictionary<Tile, Graph<Node<Vector2Int>>> graphs = new Dictionary<Tile, Graph<Node<Vector2Int>>>();
-
-
+        Dictionary<Tile, Graph<Node>> graphs = new Dictionary<Tile, Graph<Node>>();
 
         foreach (Tile t in nodes.Keys)
         {
@@ -285,8 +317,8 @@ public class Matrix
             if (t != Tile.NullTile)
             {
                 var eDict = BuildAdjacencyList(nList, t);
-                edges[t] = eDict;
-                Graph<Node<Vector2Int>> g = new Graph<Node<Vector2Int>>(nList, eDict);
+                edges.Add(t, eDict);
+                Graph<Node> g = new Graph<Node>(nList, eDict);
                 graphs.Add(t, g);
             }
             else
@@ -424,7 +456,7 @@ public class Matrix
     {
         foreach (Tile t in m.graphs.Keys)
         {
-            Graph<Node<Vector2Int>> g = m.graphs[t];
+            Graph<Node> g = m.graphs[t];
             if (g != null)
             {
                 g.PrintNodes();
