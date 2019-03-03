@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public class Matrix
 {
     public const string PADDING = " ";
-    public const int BARRIER_PERCENTAGE = 15;
+    public const int BARRIER_PERCENTAGE = 20;
     public int rebuilds = 0;
     public const int MAX_REBUILDS = 5;
 
@@ -41,6 +41,16 @@ public class Matrix
         if (hasPath)
         {
             Console.WriteLine("Has a path!");
+            Vector2Int target = exitPositions[1];
+            var n = NGet(target.x, target.y);
+            var nid = n.GetGuid();
+            var path = pathData.GetPathGuidsFrom(nid);
+            foreach (Guid nidOnPath in path)
+            {
+                var nodeInPath = graphs[Tile.Space].Find(nidOnPath);
+                var pos = nodeInPath.Read();
+                MSet(pos.x, pos.y, Tile.Path);
+            }
         }
         else
         {
@@ -50,6 +60,10 @@ public class Matrix
 
     bool BuildPath()
     {
+        if (exitPositions.Count < 2)
+        {
+            return false;
+        }
         Vector2Int source = exitPositions[0];
         Vector2Int target = exitPositions[1];
         var graph = graphs[Tile.Space];
@@ -67,6 +81,12 @@ public class Matrix
             return false;
         }
     }
+
+    void HighlightPath()
+    {
+
+    }
+
     void Reset()
     {
         r = new Random();
@@ -417,7 +437,7 @@ public class Matrix
             case Tile.Door:
                 return "D";
             case Tile.Path:
-                return "o";
+                return ".";
             case Tile.NullTile:
                 return "N";
             default:

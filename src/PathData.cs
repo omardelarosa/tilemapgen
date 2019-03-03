@@ -33,4 +33,16 @@ public class PathData<T> where T : INode<Vector2Int>
     {
         return distances[nid] < int.MaxValue;
     }
+
+    public List<Guid> GetPathGuidsFrom(Guid targetID)
+    {
+        Guid current = targetID;
+        List<Guid> path = new List<Guid>();
+        while (paths.ContainsKey(current))
+        {
+            path.Add(current);
+            current = paths[current];
+        }
+        return path;
+    }
 }
