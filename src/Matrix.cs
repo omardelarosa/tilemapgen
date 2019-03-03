@@ -33,7 +33,7 @@ public class Matrix
 
     public Tile MGet(int x, int y)
     {
-        if (x < 0 || y < 0 || x > size.x || y > size.y)
+        if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
             return Tile.NullTile;
         }
@@ -59,9 +59,9 @@ public class Matrix
 
     public Node<Vector2Int> NGet(int x, int y)
     {
-        if (x < 0 || y < 0 || x > size.x || y > size.y)
+        if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
-            return null;
+            return nullNode;
         }
         else
         {
@@ -88,10 +88,10 @@ public class Matrix
         int y = s.y;
         size = s;
         nodematrix = new List<List<Node<Vector2Int>>>();
-        for (int i = 0; i < y; i++)
+        for (int i = 0; i < x; i++)
         {
             List<Node<Vector2Int>> row = new List<Node<Vector2Int>>();
-            for (int j = 0; j < x; j++)
+            for (int j = 0; j < y; j++)
             {
                 row.Add(nullNode);
             }
@@ -104,10 +104,10 @@ public class Matrix
         int y = s.y;
         size = s;
         tilematrix = new List<List<Tile>>();
-        for (int i = 0; i < y; i++)
+        for (int i = 0; i < x; i++)
         {
             List<Tile> row = new List<Tile>();
-            for (int j = 0; j < x; j++)
+            for (int j = 0; j < y; j++)
             {
                 row.Add(Tile.NullTile);
                 Vector2Int pos = new Vector2Int(i, j);
@@ -149,8 +149,17 @@ public class Matrix
             // Check if neighbor is of same tiletype
             if (MGet(nPos.x, nPos.y) == t)
             {
+                var n = NGet(nPos.x, nPos.y);
+                if (n != null)
+                {
+                    neighbors.Add(n.GetGuid());
+                }
+                else
+                {
+                    Console.WriteLine("NO NODE AT POSITION: " + nPos);
+                }
                 // Adds GUID for node to neighbors
-                neighbors.Add(NGet(nPos.x, nPos.y).GetGuid());
+
             }
         }
         return neighbors;
@@ -241,6 +250,7 @@ public class Matrix
             }
         }
 
+        // TODO: take out debug logic
         Console.WriteLine("Doors: " + numDoors + " DoorsPlace: " + _doorsPlaced);
     }
 

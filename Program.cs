@@ -12,7 +12,7 @@ namespace TilemapGen
             ConsoleKeyInfo cki = Program.Prompt();
             while (cki.Key == ConsoleKey.Enter)
             {
-                Vector2Int size = new Vector2Int(32, 16);
+                Vector2Int size = new Vector2Int(16, 16);
                 Matrix m = new Matrix(size);
                 m.PrintMatrix();
                 // m.PrintGraphs();
