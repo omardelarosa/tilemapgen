@@ -1,8 +1,5 @@
-TilemapGen.exe:
-	csc TilemapGen.cs
-
-start: clean TilemapGen.exe
-	mono TilemapGen.exe
+start:
+	dotnet run
 
 clean:
 	bin/clean
