@@ -11,6 +11,70 @@ namespace TilemapGen
         NullTile
     }
 
+    class Node<T>
+    {
+        public Guid id;
+        T data;
+        public Node(T d)
+        {
+            id = Guid.NewGuid();
+            data = d;
+        }
+
+        Guid GetGuid()
+        {
+            return id;
+        }
+
+        T Read()
+        {
+            return data;
+        }
+
+        public override string ToString()
+        {
+            if (data != null)
+            {
+                return "<Node id:" + id + " data:" + data.ToString() + ">";
+            }
+            return "<Node id:" + id + " data:NULL>";
+        }
+    }
+
+    class Graph<T>
+    {
+        public List<T> nodesList;
+        public Dictionary<Guid, T> nodesMap;
+        public Dictionary<Guid, List<Guid>> edges;
+        public Graph(List<T> nodes, Dictionary<Guid, List<Guid>> _edges)
+        {
+            nodesList = nodes;
+            edges = _edges;
+            // nodesMap = new Dictionary<Guid, T>();
+            // foreach (T n in nodesList)
+            // {
+            //     if (n != null)
+            //     {
+            //         nodesMap.Add(n.GetGuid(), n);
+            //     }
+
+            // }
+        }
+
+        public void PrintNodes()
+        {
+            foreach (T n in nodesList)
+            {
+                Console.WriteLine(n);
+            }
+        }
+
+        public override string ToString()
+        {
+            return nodesMap.ToString();
+        }
+    }
+
     class CLI
     {
         static void Main()
@@ -23,6 +87,8 @@ namespace TilemapGen
                 Vector2Int size = new Vector2Int(16, 16);
                 Matrix m = new Matrix(size);
                 m.PrintMatrix();
+                // m.PrintGraphs();
+
                 cki = CLI.Prompt();
             }
         }
@@ -59,12 +125,14 @@ namespace TilemapGen
         List<List<Tile>> tilematrix;
         List<Vector2Int> positions;
         private Vector2Int size;
+        Dictionary<Tile, Graph<Node<Vector2Int>>> graphs;
         Random r;
         public Matrix(Vector2Int size)
         {
             r = new Random();
             positions = new List<Vector2Int>();
             BuildEmptyMatrix(size);
+            graphs = MakeGraphs();
             FillMatrix();
         }
 
@@ -85,6 +153,42 @@ namespace TilemapGen
                 }
                 tilematrix.Add(row);
             }
+        }
+
+        public Dictionary<Tile, Graph<Node<Vector2Int>>> MakeGraphs()
+        {
+            IDictionary<Tile, List<Node<Vector2Int>>> nodes = new Dictionary<Tile, List<Node<Vector2Int>>>();
+
+            // Making NullTile
+            nodes.Add(Tile.NullTile, null);
+
+            foreach (Vector2Int p in positions)
+            {
+                Tile t = tilematrix[p.x][p.y];
+                Node<Vector2Int> n = new Node<Vector2Int>(p);
+                var list = nodes[t];
+                if (list == null)
+                {
+                    nodes[t] = new List<Node<Vector2Int>>();
+                    list = nodes[t];
+                }
+                list.Add(n);
+            }
+
+            Dictionary<Tile, Graph<Node<Vector2Int>>> graphs = new Dictionary<Tile, Graph<Node<Vector2Int>>>();
+
+            // Making null tile
+            // graphs[Tile.NullTile] = null;
+
+            foreach (Tile t in nodes.Keys)
+            {
+                var edges = new Dictionary<Guid, List<Guid>>();
+                Graph<Node<Vector2Int>> g = new Graph<Node<Vector2Int>>(nodes[t], edges);
+                graphs.Add(t, g);
+            }
+
+            return graphs;
+            // TODO: make graph for all parts.
         }
 
         void FillMatrix()
@@ -167,10 +271,28 @@ namespace TilemapGen
         {
             Console.WriteLine(m.ToString());
         }
-
         public void PrintMatrix()
         {
             Matrix.PrintMatrix(this);
         }
+
+        public static void PrintGraphs(Matrix m)
+        {
+            foreach (Tile t in m.graphs.Keys)
+            {
+                Graph<Node<Vector2Int>> g = m.graphs[t];
+                if (g != null)
+                {
+                    g.PrintNodes();
+                }
+            }
+        }
+
+        public void PrintGraphs()
+        {
+            Matrix.PrintGraphs(this);
+        }
+
+
     }
 }
