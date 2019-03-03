@@ -26,6 +26,7 @@ public class Matrix
         nullNode = new Node<Vector2Int>(nullPos);
         // Populate Matrix
         BuildEmptyMatrix(size);
+        Console.WriteLine("Dims: " + tilematrix.Count + "rows x " + tilematrix[0].Count + "cols");
         BuildEmptyNodeMatrix(size);
         graphs = MakeGraphs();
         FillMatrix();
@@ -39,7 +40,7 @@ public class Matrix
         }
         else
         {
-            return tilematrix[x][y];
+            return tilematrix[y][x];
         }
     }
 
@@ -48,7 +49,7 @@ public class Matrix
         bool isValidTile = MGet(x, y) != null;
         if (isValidTile)
         {
-            tilematrix[x][y] = t;
+            tilematrix[y][x] = t;
             return true;
         }
         else
@@ -65,16 +66,16 @@ public class Matrix
         }
         else
         {
-            return nodematrix[x][y];
+            return nodematrix[y][x];
         }
     }
 
     public bool NSet(int x, int y, Node<Vector2Int> n)
     {
-        bool isValidTile = MGet(x, y) != null;
+        bool isValidTile = MGet(x, y) != Tile.NullTile;
         if (isValidTile)
         {
-            nodematrix[x][y] = n;
+            nodematrix[y][x] = n;
             return true;
         }
         else
@@ -88,10 +89,12 @@ public class Matrix
         int y = s.y;
         size = s;
         nodematrix = new List<List<Node<Vector2Int>>>();
-        for (int i = 0; i < x; i++)
+        // Rows
+        for (int i = 0; i < y; i++)
         {
             List<Node<Vector2Int>> row = new List<Node<Vector2Int>>();
-            for (int j = 0; j < y; j++)
+            // Cols
+            for (int j = 0; j < x; j++)
             {
                 row.Add(nullNode);
             }
@@ -104,13 +107,15 @@ public class Matrix
         int y = s.y;
         size = s;
         tilematrix = new List<List<Tile>>();
-        for (int i = 0; i < x; i++)
+        // Rows
+        for (int i = 0; i < y; i++)
         {
             List<Tile> row = new List<Tile>();
-            for (int j = 0; j < y; j++)
+            // Cols
+            for (int j = 0; j < x; j++)
             {
                 row.Add(Tile.NullTile);
-                Vector2Int pos = new Vector2Int(i, j);
+                Vector2Int pos = new Vector2Int(j, i);
                 positions.Add(pos);
 
                 // Use this to add doors
@@ -299,12 +304,12 @@ public class Matrix
         int y = size.y;
 
         string str = "";
-        for (int i = 0; i < x; i++)
+        for (int i = 0; i < y; i++)
         {
             string line = "";
-            for (int j = 0; j < y; j++)
+            for (int j = 0; j < x; j++)
             {
-                line = line + TileToString(MGet(i, j)) + PADDING;
+                line = line + TileToString(MGet(j, i)) + PADDING;
             }
             str = str + line + "\n";
         }
