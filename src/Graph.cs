@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public class Graph<T>
+public class Graph<T> where T : INode<T>
 {
     public List<T> nodesList;
     public Dictionary<Guid, T> nodesMap;
@@ -10,15 +10,19 @@ public class Graph<T>
     {
         nodesList = nodes;
         edges = _edges;
-        // nodesMap = new Dictionary<Guid, T>();
-        // foreach (T n in nodesList)
-        // {
-        //     if (n != null)
-        //     {
-        //         nodesMap.Add(n.GetGuid(), n);
-        //     }
+        nodesMap = new Dictionary<Guid, T>();
+        foreach (T n in nodesList)
+        {
+            if (n != null)
+            {
+                nodesMap.Add(n.GetGuid(), n);
+            }
+        }
+    }
 
-        // }
+    public T Find(Guid id)
+    {
+        return nodesMap[id];
     }
 
     public void PrintNodes()

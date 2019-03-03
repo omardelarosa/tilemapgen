@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-public class Node<T>
+public class Node<T> : INode<Node<T>>
 {
     public Guid id;
     T data;
@@ -10,12 +10,12 @@ public class Node<T>
         data = d;
     }
 
-    Guid GetGuid()
+    public Guid GetGuid()
     {
         return id;
     }
 
-    T Read()
+    public T Read()
     {
         return data;
     }
