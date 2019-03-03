@@ -4,10 +4,15 @@ using System.Collections.Generic;
 public class Matrix
 {
     public const string PADDING = " ";
+    public const int BARRIER_PERCENTAGE = 15;
+    public int rebuilds = 0;
+    public const int MAX_REBUILDS = 5;
+
     List<List<Tile>> tilematrix;
     List<List<Node<Vector2Int>>> nodematrix;
     List<Vector2Int> positions;
     List<Vector2Int> borderPositions;
+    List<Vector2Int> exitPositions;
     private Vector2Int size;
     private int numDoors;
     private int _doorsPlaced = 0;
@@ -17,19 +22,46 @@ public class Matrix
     Random r;
     public Matrix(Vector2Int size)
     {
+        OnInit(size);
+        rebuilds = 0;
+        while (exitPositions.Count < 2 && rebuilds <= MAX_REBUILDS)
+        {
+            OnInit(size);
+            rebuilds += 1;
+        }
+
+        if (rebuilds == MAX_REBUILDS)
+        {
+            Console.WriteLine("Unable to build valid map after " + MAX_REBUILDS + " rebuilds.");
+        }
+    }
+
+    void Reset()
+    {
         r = new Random();
         // Initialize containers, static values
         positions = new List<Vector2Int>();
         borderPositions = new List<Vector2Int>();
-        numDoors = r.Next(1, 5); // ensures 1 to 4 doors
+        exitPositions = new List<Vector2Int>();
+        _doorsPlaced = 0;
+    }
+
+    void OnInit(Vector2Int size)
+    {
+        r = new Random();
+        // Initialize containers, static values
+        Reset();
+        numDoors = r.Next(2, 3); // ensures 2 doors. // or 1 to 4 doors
         nullPos = new Vector2Int(-1, -1);
         nullNode = new Node<Vector2Int>(nullPos);
         // Populate Matrix
         BuildEmptyMatrix(size);
-        Console.WriteLine("Dims: " + tilematrix.Count + "rows x " + tilematrix[0].Count + "cols");
         BuildEmptyNodeMatrix(size);
-        graphs = MakeGraphs();
         FillMatrix();
+        graphs = MakeGraphs(); // Make graph of tile relationships
+        SetExitPositions();
+        Console.WriteLine("Dims: " + tilematrix.Count + "rows x " + tilematrix[0].Count + "cols");
+        Console.WriteLine("Exits: " + exitPositions.Count);
     }
 
     public Tile MGet(int x, int y)
@@ -83,6 +115,35 @@ public class Matrix
             return false;
         }
     }
+
+    void SetExitPositions()
+    {
+        // No doors.
+        if (!graphs.ContainsKey(Tile.Door))
+        {
+            exitPositions = new List<Vector2Int>();
+            return;
+        }
+        // Determine paths
+        List<Node<Vector2Int>> doors = graphs[Tile.Door].nodesList;
+        exitPositions = new List<Vector2Int>();
+        foreach (Node<Vector2Int> d in doors)
+        {
+            Node<Vector2Int> adjacentNodeToDoor = GetDoorNeighborSpaces(d);
+
+            if (adjacentNodeToDoor != null)
+            {
+                Vector2Int nPos = adjacentNodeToDoor.Read();
+                MSet(nPos.x, nPos.y, Tile.Path); // Mark as path
+                exitPositions.Add(nPos);
+            }
+            else
+            {
+                Console.WriteLine("Blocked door at: " + d.Read());
+            }
+        }
+    }
+
     void BuildEmptyNodeMatrix(Vector2Int s)
     {
         int x = s.x;
@@ -138,6 +199,22 @@ public class Matrix
         return edges;
     }
 
+    Node<Vector2Int> GetDoorNeighborSpaces(Node<Vector2Int> door)
+    {
+        var neighbors = GetNeighborGuids(door, Tile.Space);
+        if (neighbors.Count == 0)
+        {
+            // Blocked in door
+            return null;
+        }
+        else
+        {
+            Guid nid = neighbors[0]; // get first neighbor
+            var node = graphs[Tile.Space].Find(nid);
+            return node;
+        }
+    }
+
     List<Guid> GetNeighborGuids(Node<Vector2Int> node, Tile t)
     {
         List<Guid> neighbors = new List<Guid>();
@@ -177,11 +254,17 @@ public class Matrix
 
         // Making NullTile
         nodes.Add(Tile.NullTile, null);
+        // Making DoorTile
+        nodes.Add(Tile.Door, null);
 
         foreach (Vector2Int p in positions)
         {
             Tile t = MGet(p.x, p.y);
             Node<Vector2Int> n = new Node<Vector2Int>(p);
+            if (!nodes.ContainsKey(t))
+            {
+                nodes.Add(t, new List<Node<Vector2Int>>()); // create nodelist
+            }
             var list = nodes[t];
             if (list == null)
             {
@@ -194,16 +277,26 @@ public class Matrix
 
         Dictionary<Tile, Graph<Node<Vector2Int>>> graphs = new Dictionary<Tile, Graph<Node<Vector2Int>>>();
 
-        // Making null tile
-        // graphs[Tile.NullTile] = null;
+
 
         foreach (Tile t in nodes.Keys)
         {
             var nList = nodes[t];
-            var eDict = BuildAdjacencyList(nList, t);
-            edges[t] = eDict;
-            Graph<Node<Vector2Int>> g = new Graph<Node<Vector2Int>>(nList, eDict);
-            graphs.Add(t, g);
+            if (t != Tile.NullTile)
+            {
+                var eDict = BuildAdjacencyList(nList, t);
+                edges[t] = eDict;
+                Graph<Node<Vector2Int>> g = new Graph<Node<Vector2Int>>(nList, eDict);
+                graphs.Add(t, g);
+            }
+            else
+            {
+                if (nList != null && nList.Count > 0)
+                {
+                    Console.WriteLine("Warning: " + nList.Count + " null tiles exist!");
+                }
+            }
+
         }
 
         return graphs;
@@ -270,8 +363,8 @@ public class Matrix
 
     bool IsRandomBarrier()
     {
-        int rInt = r.Next(0, 10);
-        if (rInt < 3)
+        int rInt = r.Next(0, 101);
+        if (rInt <= BARRIER_PERCENTAGE)
         {
             return true;
         }
@@ -291,6 +384,8 @@ public class Matrix
                 return " ";
             case Tile.Door:
                 return "D";
+            case Tile.Path:
+                return "o";
             case Tile.NullTile:
                 return "N";
             default:

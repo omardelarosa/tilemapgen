@@ -6,6 +6,9 @@ public class Graph<T> where T : INode<T>
     public List<T> nodesList;
     public Dictionary<Guid, T> nodesMap;
     public Dictionary<Guid, List<Guid>> edges;
+    public Dictionary<Guid, Dictionary<Guid, int>> distBySource; // keep track of dist
+    public Dictionary<Guid, Dictionary<Guid, Guid>> prevBySource; // keep track of paths for a given source
+
     public Graph(List<T> nodes, Dictionary<Guid, List<Guid>> _edges)
     {
         nodesList = nodes;
@@ -20,6 +23,10 @@ public class Graph<T> where T : INode<T>
         }
     }
 
+    public void Dijkstra(T source)
+    {
+
+    }
     public T Find(Guid id)
     {
         return nodesMap[id];
