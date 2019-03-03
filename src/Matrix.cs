@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 
-public class Matrix
+public class PGCMap
 {
     public const string PADDING = " ";
-    public const int BARRIER_PERCENTAGE = 20;
+    public const int BARRIER_PERCENTAGE = 30;
     public int rebuilds = 0;
     public const int MAX_REBUILDS = 5;
 
-    List<List<Tile>> tilematrix;
-    List<List<Node>> nodematrix;
+    List<List<Tile>> tilePGCMap;
+    List<List<Node>> nodePGCMap;
     List<Vector2Int> positions;
     List<Vector2Int> borderPositions;
     List<Vector2Int> exitPositions;
@@ -21,7 +21,7 @@ public class Matrix
     private Vector2Int nullPos;
     Dictionary<Tile, Graph<Node>> graphs;
     Random r;
-    public Matrix(Vector2Int size)
+    public PGCMap(Vector2Int size)
     {
         OnInit(size);
         rebuilds = 0;
@@ -105,13 +105,13 @@ public class Matrix
         numDoors = r.Next(2, 3); // ensures 2 doors. // or 1 to 4 doors
         nullPos = Vector2Int.NULL_POSITION;
         nullNode = Node.NULL_NODE;
-        // Populate Matrix
-        BuildEmptyMatrix(size);
-        BuildEmptyNodeMatrix(size);
-        FillMatrix();
+        // Populate PGCMap
+        BuildEmptyPGCMap(size);
+        BuildEmptyNodePGCMap(size);
+        FillPGCMap();
         graphs = MakeGraphs(); // Make graph of tile relationships
         SetExitPositions();
-        Console.WriteLine("Dims: " + tilematrix.Count + "rows x " + tilematrix[0].Count + "cols");
+        Console.WriteLine("Dims: " + tilePGCMap.Count + "rows x " + tilePGCMap[0].Count + "cols");
         Console.WriteLine("Exits: " + exitPositions.Count);
     }
 
@@ -123,7 +123,7 @@ public class Matrix
         }
         else
         {
-            return tilematrix[y][x];
+            return tilePGCMap[y][x];
         }
     }
 
@@ -132,7 +132,7 @@ public class Matrix
         bool isValidTile = MGet(x, y) != Tile.OutOfBoundsTile;
         if (isValidTile)
         {
-            tilematrix[y][x] = t;
+            tilePGCMap[y][x] = t;
             return true;
         }
         else
@@ -149,7 +149,7 @@ public class Matrix
         }
         else
         {
-            return nodematrix[y][x];
+            return nodePGCMap[y][x];
         }
     }
 
@@ -158,7 +158,7 @@ public class Matrix
         bool isValidTile = MGet(x, y) != Tile.NullTile;
         if (isValidTile)
         {
-            nodematrix[y][x] = n;
+            nodePGCMap[y][x] = n;
             return true;
         }
         else
@@ -195,12 +195,12 @@ public class Matrix
         }
     }
 
-    void BuildEmptyNodeMatrix(Vector2Int s)
+    void BuildEmptyNodePGCMap(Vector2Int s)
     {
         int x = s.x;
         int y = s.y;
         size = s;
-        nodematrix = new List<List<Node>>();
+        nodePGCMap = new List<List<Node>>();
         // Rows
         for (int i = 0; i < y; i++)
         {
@@ -210,15 +210,15 @@ public class Matrix
             {
                 row.Add(nullNode);
             }
-            nodematrix.Add(row);
+            nodePGCMap.Add(row);
         }
     }
-    void BuildEmptyMatrix(Vector2Int s)
+    void BuildEmptyPGCMap(Vector2Int s)
     {
         int x = s.x;
         int y = s.y;
         size = s;
-        tilematrix = new List<List<Tile>>();
+        tilePGCMap = new List<List<Tile>>();
         // Rows
         for (int i = 0; i < y; i++)
         {
@@ -236,7 +236,7 @@ public class Matrix
                     borderPositions.Add(pos);
                 }
             }
-            tilematrix.Add(row);
+            tilePGCMap.Add(row);
         }
     }
     public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node> nodes, Tile t)
@@ -325,7 +325,7 @@ public class Matrix
                 nodes[t] = new List<Node>();
                 list = nodes[t];
             }
-            NSet(p.x, p.y, n); // Adds node to node matrix
+            NSet(p.x, p.y, n); // Adds node to node PGCMap
             list.Add(n);
         }
 
@@ -355,7 +355,7 @@ public class Matrix
         // TODO: make graph for all parts.
     }
 
-    void FillMatrix()
+    void FillPGCMap()
     {
         // Adds barriers
         foreach (Vector2Int pos in positions)
@@ -372,7 +372,7 @@ public class Matrix
     {
         if (IsBorder(pos))
         {
-            MSet(pos.x, pos.y, Tile.Barrier);
+            MSet(pos.x, pos.y, Tile.Wall);
         }
         else if (IsRandomBarrier())
         {
@@ -430,8 +430,10 @@ public class Matrix
     {
         switch (t)
         {
+            case Tile.Wall:
+                return "W";
             case Tile.Barrier:
-                return "X";
+                return "B";
             case Tile.Space:
                 return " ";
             case Tile.Door:
@@ -463,16 +465,16 @@ public class Matrix
         return str;
     }
 
-    public static void PrintMatrix(Matrix m)
+    public static void PrintPGCMap(PGCMap m)
     {
         Console.WriteLine(m.ToString());
     }
-    public void PrintMatrix()
+    public void PrintPGCMap()
     {
-        Matrix.PrintMatrix(this);
+        PGCMap.PrintPGCMap(this);
     }
 
-    public static void PrintGraphs(Matrix m)
+    public static void PrintGraphs(PGCMap m)
     {
         foreach (Tile t in m.graphs.Keys)
         {
@@ -486,7 +488,7 @@ public class Matrix
 
     public void PrintGraphs()
     {
-        Matrix.PrintGraphs(this);
+        PGCMap.PrintGraphs(this);
     }
 
 

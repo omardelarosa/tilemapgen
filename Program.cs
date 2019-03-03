@@ -11,14 +11,14 @@ namespace TilemapGen
             Console.WriteLine("---------------------------");
 
             Vector2Int size = new Vector2Int(32, 16);
-            Matrix m = new Matrix(size);
-            m.PrintMatrix();
+            PGCMap m = new PGCMap(size);
+            m.PrintPGCMap();
 
             ConsoleKeyInfo cki = Program.Prompt();
             while (cki.Key == ConsoleKey.Enter)
             {
-                m = new Matrix(size);
-                m.PrintMatrix();
+                m = new PGCMap(size);
+                m.PrintPGCMap();
                 // m.PrintGraphs();
                 cki = Program.Prompt();
             }
