@@ -1,10 +1,10 @@
-public enum Tile
+public enum ETile
 {
     Barrier,
     Wall,
     Space,
     Door,
     Path,
-    NullTile,
-    OutOfBoundsTile
+    NullETile,
+    OutOfBoundsETile
 }

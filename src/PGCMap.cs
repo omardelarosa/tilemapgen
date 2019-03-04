@@ -8,7 +8,7 @@ public class PGCMap
     public int rebuilds = 0;
     public const int MAX_REBUILDS = 5;
 
-    List<List<Tile>> tilePGCMap;
+    List<List<ETile>> ETilePGCMap;
     List<List<Node>> nodePGCMap;
     List<PositionVector> positions;
     List<PositionVector> borderPositions;
@@ -19,7 +19,7 @@ public class PGCMap
     private int _doorsPlaced = 0;
     private Node nullNode;
     private PositionVector nullPos;
-    Dictionary<Tile, Graph<Node>> graphs;
+    Dictionary<ETile, Graph<Node>> graphs;
     Random r;
     public PGCMap(PositionVector size)
     {
@@ -47,9 +47,9 @@ public class PGCMap
             var path = pathData.GetPathGuidsFrom(nid);
             foreach (Guid nidOnPath in path)
             {
-                var nodeInPath = graphs[Tile.Space].Find(nidOnPath);
+                var nodeInPath = graphs[ETile.Space].Find(nidOnPath);
                 var pos = nodeInPath.Read();
-                MSet(pos.x, pos.y, Tile.Path);
+                MSet(pos.x, pos.y, ETile.Path);
             }
         }
         else
@@ -66,7 +66,7 @@ public class PGCMap
         }
         PositionVector source = exitPositions[0];
         PositionVector target = exitPositions[1];
-        var graph = graphs[Tile.Space];
+        var graph = graphs[ETile.Space];
         var sourceNode = NGet(source.x, source.y);
         var targetNode = NGet(target.x, target.y);
         var pd = graph.Dijkstra(sourceNode, targetNode);
@@ -109,30 +109,30 @@ public class PGCMap
         BuildEmptyPGCMap(size);
         BuildEmptyNodePGCMap(size);
         FillPGCMap();
-        graphs = MakeGraphs(); // Make graph of tile relationships
+        graphs = MakeGraphs(); // Make graph of ETile relationships
         SetExitPositions();
-        Console.WriteLine("Dims: " + tilePGCMap.Count + "rows x " + tilePGCMap[0].Count + "cols");
+        Console.WriteLine("Dims: " + ETilePGCMap.Count + "rows x " + ETilePGCMap[0].Count + "cols");
         Console.WriteLine("Exits: " + exitPositions.Count);
     }
 
-    public Tile MGet(int x, int y)
+    public ETile MGet(int x, int y)
     {
         if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
-            return Tile.OutOfBoundsTile;
+            return ETile.OutOfBoundsETile;
         }
         else
         {
-            return tilePGCMap[y][x];
+            return ETilePGCMap[y][x];
         }
     }
 
-    public bool MSet(int x, int y, Tile t)
+    public bool MSet(int x, int y, ETile t)
     {
-        bool isValidTile = MGet(x, y) != Tile.OutOfBoundsTile;
-        if (isValidTile)
+        bool isValidETile = MGet(x, y) != ETile.OutOfBoundsETile;
+        if (isValidETile)
         {
-            tilePGCMap[y][x] = t;
+            ETilePGCMap[y][x] = t;
             return true;
         }
         else
@@ -155,8 +155,8 @@ public class PGCMap
 
     public bool NSet(int x, int y, Node n)
     {
-        bool isValidTile = MGet(x, y) != Tile.NullTile;
-        if (isValidTile)
+        bool isValidETile = MGet(x, y) != ETile.NullETile;
+        if (isValidETile)
         {
             nodePGCMap[y][x] = n;
             return true;
@@ -170,13 +170,13 @@ public class PGCMap
     void SetExitPositions()
     {
         // No doors.
-        if (!graphs.ContainsKey(Tile.Door))
+        if (!graphs.ContainsKey(ETile.Door))
         {
             exitPositions = new List<PositionVector>();
             return;
         }
         // Determine paths
-        List<Node> doors = graphs[Tile.Door].nodesList;
+        List<Node> doors = graphs[ETile.Door].nodesList;
         exitPositions = new List<PositionVector>();
         foreach (Node d in doors)
         {
@@ -185,7 +185,7 @@ public class PGCMap
             if (adjacentNodeToDoor != null)
             {
                 PositionVector nPos = adjacentNodeToDoor.Read();
-                MSet(nPos.x, nPos.y, Tile.Path); // Mark as path
+                MSet(nPos.x, nPos.y, ETile.Path); // Mark as path
                 exitPositions.Add(nPos);
             }
             else
@@ -218,15 +218,15 @@ public class PGCMap
         int x = s.x;
         int y = s.y;
         size = s;
-        tilePGCMap = new List<List<Tile>>();
+        ETilePGCMap = new List<List<ETile>>();
         // Rows
         for (int i = 0; i < y; i++)
         {
-            List<Tile> row = new List<Tile>();
+            List<ETile> row = new List<ETile>();
             // Cols
             for (int j = 0; j < x; j++)
             {
-                row.Add(Tile.NullTile);
+                row.Add(ETile.NullETile);
                 PositionVector pos = new PositionVector(j, i);
                 positions.Add(pos);
 
@@ -236,10 +236,10 @@ public class PGCMap
                     borderPositions.Add(pos);
                 }
             }
-            tilePGCMap.Add(row);
+            ETilePGCMap.Add(row);
         }
     }
-    public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node> nodes, Tile t)
+    public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node> nodes, ETile t)
     {
         var edges = new Dictionary<Guid, List<Guid>>();
         foreach (Node n in nodes)
@@ -255,7 +255,7 @@ public class PGCMap
 
     Node GetDoorNeighborSpaces(Node door)
     {
-        var neighbors = GetNeighborGuids(door, Tile.Space);
+        var neighbors = GetNeighborGuids(door, ETile.Space);
         if (neighbors.Count == 0)
         {
             // Blocked in door
@@ -264,12 +264,12 @@ public class PGCMap
         else
         {
             Guid nid = neighbors[0]; // get first neighbor
-            var node = graphs[Tile.Space].Find(nid);
+            var node = graphs[ETile.Space].Find(nid);
             return node;
         }
     }
 
-    List<Guid> GetNeighborGuids(Node node, Tile t)
+    List<Guid> GetNeighborGuids(Node node, ETile t)
     {
         List<Guid> neighbors = new List<Guid>();
         List<PositionVector> neighborPositions = new List<PositionVector>();
@@ -282,7 +282,7 @@ public class PGCMap
 
         foreach (PositionVector nPos in neighborPositions)
         {
-            // Check if neighbor is of same tiletype
+            // Check if neighbor is of same ETiletype
             if (MGet(nPos.x, nPos.y) == t)
             {
                 var n = NGet(nPos.x, nPos.y);
@@ -301,19 +301,19 @@ public class PGCMap
         return neighbors;
     }
 
-    public Dictionary<Tile, Graph<Node>> MakeGraphs()
+    public Dictionary<ETile, Graph<Node>> MakeGraphs()
     {
-        IDictionary<Tile, List<Node>> nodes = new Dictionary<Tile, List<Node>>();
-        IDictionary<Tile, Dictionary<Guid, List<Guid>>> edges = new Dictionary<Tile, Dictionary<Guid, List<Guid>>>();
+        IDictionary<ETile, List<Node>> nodes = new Dictionary<ETile, List<Node>>();
+        IDictionary<ETile, Dictionary<Guid, List<Guid>>> edges = new Dictionary<ETile, Dictionary<Guid, List<Guid>>>();
 
-        // Making NullTile
-        nodes.Add(Tile.NullTile, new List<Node>());
-        // Making DoorTile
-        nodes.Add(Tile.Door, new List<Node>());
+        // Making NullETile
+        nodes.Add(ETile.NullETile, new List<Node>());
+        // Making DoorETile
+        nodes.Add(ETile.Door, new List<Node>());
 
         foreach (PositionVector p in positions)
         {
-            Tile t = MGet(p.x, p.y);
+            ETile t = MGet(p.x, p.y);
             Node n = new Node(p);
             if (!nodes.ContainsKey(t))
             {
@@ -329,12 +329,12 @@ public class PGCMap
             list.Add(n);
         }
 
-        Dictionary<Tile, Graph<Node>> graphs = new Dictionary<Tile, Graph<Node>>();
+        Dictionary<ETile, Graph<Node>> graphs = new Dictionary<ETile, Graph<Node>>();
 
-        foreach (Tile t in nodes.Keys)
+        foreach (ETile t in nodes.Keys)
         {
             var nList = nodes[t];
-            if (t != Tile.NullTile)
+            if (t != ETile.NullETile)
             {
                 var eDict = BuildAdjacencyList(nList, t);
                 edges.Add(t, eDict);
@@ -345,7 +345,7 @@ public class PGCMap
             {
                 if (nList != null && nList.Count > 0)
                 {
-                    Console.WriteLine("Warning: " + nList.Count + " null tiles exist!");
+                    Console.WriteLine("Warning: " + nList.Count + " null ETiles exist!");
                 }
             }
 
@@ -372,15 +372,15 @@ public class PGCMap
     {
         if (IsBorder(pos))
         {
-            MSet(pos.x, pos.y, Tile.Wall);
+            MSet(pos.x, pos.y, ETile.Wall);
         }
         else if (IsRandomBarrier())
         {
-            MSet(pos.x, pos.y, Tile.Barrier);
+            MSet(pos.x, pos.y, ETile.Barrier);
         }
         else
         {
-            MSet(pos.x, pos.y, Tile.Space);
+            MSet(pos.x, pos.y, ETile.Space);
         }
     }
 
@@ -392,10 +392,10 @@ public class PGCMap
         {
             int rIdx = r.Next(0, numBorderPositions);
             PositionVector randomPos = borderPositions[rIdx];
-            Tile t = MGet(randomPos.x, randomPos.y);
-            if (t != Tile.Door)
+            ETile t = MGet(randomPos.x, randomPos.y);
+            if (t != ETile.Door)
             {
-                MSet(randomPos.x, randomPos.y, Tile.Door);
+                MSet(randomPos.x, randomPos.y, ETile.Door);
                 _doorsPlaced += 1;
             }
         }
@@ -426,21 +426,21 @@ public class PGCMap
         }
     }
 
-    string TileToString(Tile t)
+    string ETileToString(ETile t)
     {
         switch (t)
         {
-            case Tile.Wall:
+            case ETile.Wall:
                 return "W";
-            case Tile.Barrier:
+            case ETile.Barrier:
                 return "B";
-            case Tile.Space:
+            case ETile.Space:
                 return " ";
-            case Tile.Door:
+            case ETile.Door:
                 return "D";
-            case Tile.Path:
+            case ETile.Path:
                 return ".";
-            case Tile.NullTile:
+            case ETile.NullETile:
                 return "N";
             default:
                 return "?";
@@ -458,7 +458,7 @@ public class PGCMap
             string line = "";
             for (int j = 0; j < x; j++)
             {
-                line = line + TileToString(MGet(j, i)) + PADDING;
+                line = line + ETileToString(MGet(j, i)) + PADDING;
             }
             str = str + line + "\n";
         }
@@ -476,7 +476,7 @@ public class PGCMap
 
     public static void PrintGraphs(PGCMap m)
     {
-        foreach (Tile t in m.graphs.Keys)
+        foreach (ETile t in m.graphs.Keys)
         {
             Graph<Node> g = m.graphs[t];
             if (g != null)
