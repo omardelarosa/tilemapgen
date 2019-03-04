@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-public class Node : INode<Vector2Int>
+public class Node : INode<PositionVector>
 {
     public Guid id;
-    Vector2Int data;
-    public static Node NULL_NODE = new Node(Vector2Int.NULL_POSITION);
+    PositionVector data;
+    public static Node NULL_NODE = new Node(PositionVector.NULL_POSITION);
 
-    public Node(Vector2Int d)
+    public Node(PositionVector d)
     {
         id = Guid.NewGuid();
         data = d;
@@ -17,7 +17,7 @@ public class Node : INode<Vector2Int>
         return id;
     }
 
-    public Vector2Int Read()
+    public PositionVector Read()
     {
         return data;
     }
@@ -31,7 +31,7 @@ public class Node : INode<Vector2Int>
         return "<Node id:" + id + " data:NULL>";
     }
 
-    public INode<Vector2Int> GetNullNode()
+    public INode<PositionVector> GetNullNode()
     {
         return Node.NULL_NODE;
     }

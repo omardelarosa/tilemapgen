@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-public interface INode<T> where T : Vector2Int
+public interface INode<T> where T : PositionVector
 {
     Guid GetGuid();
-    Vector2Int Read();
+    PositionVector Read();
     INode<T> GetNullNode();
     bool IsNull();
 }

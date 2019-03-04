@@ -1,10 +1,10 @@
 
-public class Vector2Int
+public class PositionVector
 {
     public int x;
     public int y;
-    public static Vector2Int NULL_POSITION = new Vector2Int(-1, -1);
-    public Vector2Int(int x, int y)
+    public static PositionVector NULL_POSITION = new PositionVector(-1, -1);
+    public PositionVector(int x, int y)
     {
         this.x = x;
         this.y = y;

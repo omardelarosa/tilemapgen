@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public class Graph<T> where T : INode<Vector2Int>
+public class Graph<T> where T : INode<PositionVector>
 {
     public List<T> nodesList;
     public Dictionary<Guid, T> nodesMap;
@@ -46,8 +46,8 @@ public class Graph<T> where T : INode<Vector2Int>
         }
         else
         {
-            Vector2Int d1 = n1.Read();
-            Vector2Int d2 = n2.Read();
+            PositionVector d1 = n1.Read();
+            PositionVector d2 = n2.Read();
             var dist = Math.Sqrt((d1.y - d2.y) / (float)(d1.x - d2.x));
             // TODO: make this distance different based on position
             return (int)Math.Round(dist);

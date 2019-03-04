@@ -10,7 +10,7 @@ namespace TilemapGen
             Console.WriteLine("-- Map Generator: v0.0.1 --");
             Console.WriteLine("---------------------------");
 
-            Vector2Int size = new Vector2Int(32, 16);
+            PositionVector size = new PositionVector(32, 16);
             PGCMap m = new PGCMap(size);
             m.PrintPGCMap();
 

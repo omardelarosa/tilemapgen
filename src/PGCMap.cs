@@ -10,18 +10,18 @@ public class PGCMap
 
     List<List<Tile>> tilePGCMap;
     List<List<Node>> nodePGCMap;
-    List<Vector2Int> positions;
-    List<Vector2Int> borderPositions;
-    List<Vector2Int> exitPositions;
+    List<PositionVector> positions;
+    List<PositionVector> borderPositions;
+    List<PositionVector> exitPositions;
     PathData<Node> pathData;
-    private Vector2Int size;
+    private PositionVector size;
     private int numDoors;
     private int _doorsPlaced = 0;
     private Node nullNode;
-    private Vector2Int nullPos;
+    private PositionVector nullPos;
     Dictionary<Tile, Graph<Node>> graphs;
     Random r;
-    public PGCMap(Vector2Int size)
+    public PGCMap(PositionVector size)
     {
         OnInit(size);
         rebuilds = 0;
@@ -41,7 +41,7 @@ public class PGCMap
         if (hasPath)
         {
             Console.WriteLine("Has a path!");
-            Vector2Int target = exitPositions[1];
+            PositionVector target = exitPositions[1];
             var n = NGet(target.x, target.y);
             var nid = n.GetGuid();
             var path = pathData.GetPathGuidsFrom(nid);
@@ -64,8 +64,8 @@ public class PGCMap
         {
             return false;
         }
-        Vector2Int source = exitPositions[0];
-        Vector2Int target = exitPositions[1];
+        PositionVector source = exitPositions[0];
+        PositionVector target = exitPositions[1];
         var graph = graphs[Tile.Space];
         var sourceNode = NGet(source.x, source.y);
         var targetNode = NGet(target.x, target.y);
@@ -91,19 +91,19 @@ public class PGCMap
     {
         r = new Random();
         // Initialize containers, static values
-        positions = new List<Vector2Int>();
-        borderPositions = new List<Vector2Int>();
-        exitPositions = new List<Vector2Int>();
+        positions = new List<PositionVector>();
+        borderPositions = new List<PositionVector>();
+        exitPositions = new List<PositionVector>();
         _doorsPlaced = 0;
     }
 
-    void OnInit(Vector2Int size)
+    void OnInit(PositionVector size)
     {
         r = new Random();
         // Initialize containers, static values
         Reset();
         numDoors = r.Next(2, 3); // ensures 2 doors. // or 1 to 4 doors
-        nullPos = Vector2Int.NULL_POSITION;
+        nullPos = PositionVector.NULL_POSITION;
         nullNode = Node.NULL_NODE;
         // Populate PGCMap
         BuildEmptyPGCMap(size);
@@ -172,19 +172,19 @@ public class PGCMap
         // No doors.
         if (!graphs.ContainsKey(Tile.Door))
         {
-            exitPositions = new List<Vector2Int>();
+            exitPositions = new List<PositionVector>();
             return;
         }
         // Determine paths
         List<Node> doors = graphs[Tile.Door].nodesList;
-        exitPositions = new List<Vector2Int>();
+        exitPositions = new List<PositionVector>();
         foreach (Node d in doors)
         {
             Node adjacentNodeToDoor = GetDoorNeighborSpaces(d);
 
             if (adjacentNodeToDoor != null)
             {
-                Vector2Int nPos = adjacentNodeToDoor.Read();
+                PositionVector nPos = adjacentNodeToDoor.Read();
                 MSet(nPos.x, nPos.y, Tile.Path); // Mark as path
                 exitPositions.Add(nPos);
             }
@@ -195,7 +195,7 @@ public class PGCMap
         }
     }
 
-    void BuildEmptyNodePGCMap(Vector2Int s)
+    void BuildEmptyNodePGCMap(PositionVector s)
     {
         int x = s.x;
         int y = s.y;
@@ -213,7 +213,7 @@ public class PGCMap
             nodePGCMap.Add(row);
         }
     }
-    void BuildEmptyPGCMap(Vector2Int s)
+    void BuildEmptyPGCMap(PositionVector s)
     {
         int x = s.x;
         int y = s.y;
@@ -227,7 +227,7 @@ public class PGCMap
             for (int j = 0; j < x; j++)
             {
                 row.Add(Tile.NullTile);
-                Vector2Int pos = new Vector2Int(j, i);
+                PositionVector pos = new PositionVector(j, i);
                 positions.Add(pos);
 
                 // Use this to add doors
@@ -272,15 +272,15 @@ public class PGCMap
     List<Guid> GetNeighborGuids(Node node, Tile t)
     {
         List<Guid> neighbors = new List<Guid>();
-        List<Vector2Int> neighborPositions = new List<Vector2Int>();
-        Vector2Int pos = node.Read();
+        List<PositionVector> neighborPositions = new List<PositionVector>();
+        PositionVector pos = node.Read();
         // Check above
-        neighborPositions.Add(new Vector2Int(pos.x - 1, pos.y)); // left
-        neighborPositions.Add(new Vector2Int(pos.x + 1, pos.y)); // right
-        neighborPositions.Add(new Vector2Int(pos.x, pos.y - 1)); // up
-        neighborPositions.Add(new Vector2Int(pos.x, pos.y + 1)); // down
+        neighborPositions.Add(new PositionVector(pos.x - 1, pos.y)); // left
+        neighborPositions.Add(new PositionVector(pos.x + 1, pos.y)); // right
+        neighborPositions.Add(new PositionVector(pos.x, pos.y - 1)); // up
+        neighborPositions.Add(new PositionVector(pos.x, pos.y + 1)); // down
 
-        foreach (Vector2Int nPos in neighborPositions)
+        foreach (PositionVector nPos in neighborPositions)
         {
             // Check if neighbor is of same tiletype
             if (MGet(nPos.x, nPos.y) == t)
@@ -311,7 +311,7 @@ public class PGCMap
         // Making DoorTile
         nodes.Add(Tile.Door, new List<Node>());
 
-        foreach (Vector2Int p in positions)
+        foreach (PositionVector p in positions)
         {
             Tile t = MGet(p.x, p.y);
             Node n = new Node(p);
@@ -358,7 +358,7 @@ public class PGCMap
     void FillPGCMap()
     {
         // Adds barriers
-        foreach (Vector2Int pos in positions)
+        foreach (PositionVector pos in positions)
         {
             FillAtPosition(pos);
         }
@@ -368,7 +368,7 @@ public class PGCMap
     }
 
     // TODO: generalize rules based on position better?
-    void FillAtPosition(Vector2Int pos)
+    void FillAtPosition(PositionVector pos)
     {
         if (IsBorder(pos))
         {
@@ -391,7 +391,7 @@ public class PGCMap
         while (_doorsPlaced < numDoors)
         {
             int rIdx = r.Next(0, numBorderPositions);
-            Vector2Int randomPos = borderPositions[rIdx];
+            PositionVector randomPos = borderPositions[rIdx];
             Tile t = MGet(randomPos.x, randomPos.y);
             if (t != Tile.Door)
             {
@@ -404,7 +404,7 @@ public class PGCMap
         Console.WriteLine("Doors: " + numDoors + " DoorsPlace: " + _doorsPlaced);
     }
 
-    bool IsBorder(Vector2Int pos)
+    bool IsBorder(PositionVector pos)
     {
         if (pos.x == 0 || pos.x == size.x - 1 || pos.y == 0 || pos.y == size.y - 1)
         {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-public class PathData<T> where T : INode<Vector2Int>
+public class PathData<T> where T : INode<PositionVector>
 {
     public Dictionary<Guid, int> distances;
     public Dictionary<Guid, Guid> paths;
