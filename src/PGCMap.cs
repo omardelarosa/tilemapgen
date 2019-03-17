@@ -20,8 +20,6 @@ public class PGCMap
     public List<Vector2Int> doorPositions;
     public List<Vector2Int> validEntityPositions;
     private PositionVector size;
-    private List<Vector2Int> _barriersMemo = new List<Vector2Int>();
-    private int numDoors;
     private int _doorsPlaced = 0;
 
     // TileAutomata Values
@@ -31,8 +29,9 @@ public class PGCMap
     private int barrierFrequency;
     private System.Random random;
 
-    private PositionVector nullPos;
     private int[,] nidsByPos;
+    public int[,] tilemapState;
+
     Dictionary<ETile, Graph2<Vector3Int>> graphsByTileType;
     Dictionary<string, List<Vector2Int>> _neighborsMemo;
     bool hasInitializedRNG = false;
@@ -126,15 +125,52 @@ public class PGCMap
     {
         // Initialize containers, static values
         Reset();
-        numDoors = GetRandInt(2, 3); // ensures 2 doors. // or 1 to 4 doors
-        nullPos = PositionVector.NULL_POSITION;
-        // Populate PGCMap
         tilemap = BuildEmptyPGCMap(size);
-        FillPGCMap();
-        SetExitPositions();
+        // Populate PGCMap
+        int[,] randomTiles = MakeRandomTilemapFromPositions(positions);
+        int[,] initialTilemapState = RunSimulation(randomTiles, maxIterations);
+        tilemapState = initialTilemapState; // Save state
+        PlaceEnumTilesFromTilemapState(initialTilemapState);
+
+        // Adds doors to border positions
+        // AddWalls(tilemap);
+        // AddDoors(tilemap);
 
         // Build Graphs of TileTypes
         graphsByTileType = BuildAllGraphs();
+    }
+
+    public void RebuildFromState(int[,] initialState)
+    {
+        // Initialize containers, static values
+        // Reset();
+        Reset();
+        tilemap = BuildEmptyPGCMap(size);
+        // Populate PGCMap
+        int[,] copyState = CloneTilemapFromPositions(initialState, positions);
+        int[,] nextState = RunSimulation(copyState, maxIterations);
+        PlaceEnumTilesFromTilemapState(nextState);
+        tilemapState = nextState;
+
+        // Build Graphs of TileTypes
+        graphsByTileType = BuildAllGraphs();
+    }
+
+    public int[,] GetStateDiff(int[,] prevState, int[,] nextState)
+    {
+        int[,] diffState = MakeEmptyTilemapFromPositions(positions);
+        foreach (var pos in positions)
+        {
+            if (prevState[pos.x, pos.y] == nextState[pos.x, pos.y])
+            {
+                diffState[pos.x, pos.y] = nextState[pos.x, pos.y];
+            }
+            else
+            {
+                diffState[pos.x, pos.y] = 2;
+            }
+        }
+        return diffState;
     }
 
     Dictionary<ETile, Graph2<Vector3Int>> BuildAllGraphs()
@@ -177,26 +213,6 @@ public class PGCMap
         }
     }
 
-    void SetExitPositions()
-    {
-        // Determine paths
-        exitPositions = new List<Vector2Int>();
-        foreach (var p in doorPositions)
-        {
-            List<Vector2Int> doorNeighbors = GetNeighborPositionsOfType(p, ETile.Path);
-            if (doorNeighbors.Count > 0)
-            {
-                Vector2Int nPos = doorNeighbors[0];
-                MSet(nPos.x, nPos.y, ETile.Space, tilemap); // Mark as path
-                exitPositions.Add(nPos);
-                validEntityPositions.Remove(nPos);
-            }
-            else
-            {
-                Console.WriteLine("Blocked door at: " + p);
-            }
-        }
-    }
     List<List<ETile>> BuildEmptyPGCMap(PositionVector s)
     {
         int x = s.x;
@@ -383,7 +399,7 @@ public class PGCMap
         return _tilemap;
     }
 
-    int[,] CloneTilemapFromPositions(int[,] tilemap, List<PositionVector> _positions)
+    public int[,] CloneTilemapFromPositions(int[,] tilemap, List<PositionVector> _positions)
     {
         int[,] _tilemap = new int[size.x, size.y];
         foreach (PositionVector pos in _positions)
@@ -413,7 +429,7 @@ public class PGCMap
     }
 
     // Runs a Conway's Game of Life-style simulation for tile PGC
-    int[,] RunSimulation(int[,] _lastTilemap)
+    int[,] RunSimulation(int[,] _lastTilemap, int max)
     {
         // Fill Spaces based on Simple Tile Automata
         int BARRIER_TILE = 1;
@@ -422,8 +438,9 @@ public class PGCMap
         int[,] currentTilemap = MakeEmptyTilemapFromPositions(positions);
         var totalBarriers = 0;
 
-        for (int i = 0; i < maxIterations; i++)
+        for (int i = 0; i < max; i++)
         {
+
             if (i > 0)
             {
                 // Swaps tiles between both maps, preventing tile map creation at each step
@@ -496,33 +513,29 @@ public class PGCMap
                 }
                 currentTilemap[pos.x, pos.y] = nextTile;
             }
-        }
 
+        }
+        // Console.WriteLine(StringifyTilemap(lastTilemap));
+        // string diff = StringifyTilemap(GetStateDiff(lastTilemap, currentTilemap));
+        // Console.WriteLine(diff);
         return currentTilemap;
     }
-    void FillPGCMap()
+
+    void PlaceEnumTilesFromTilemapState(int[,] _initialTilemapState)
     {
-        int[,] randomTiles = MakeRandomTilemapFromPositions(positions);
-        int[,] spaces = RunSimulation(randomTiles);
         // Populate map based on simulation results
         foreach (var pos in positions)
         {
-            int spaceVal = spaces[pos.x, pos.y];
-            if (spaceVal == 0)
+            int spaceVal = _initialTilemapState[pos.x, pos.y];
+            if (spaceVal == SPACE_TILE)
             {
                 MSet(pos.x, pos.y, ETile.Space, tilemap);
             }
             else
             {
                 MSet(pos.x, pos.y, ETile.Barrier, tilemap);
-                _barriersMemo.Add(new Vector2Int(pos.x, pos.y));
             }
         }
-        // Reset tilemap var using new tilemap
-
-        // Adds doors to border positions
-        AddWalls(tilemap);
-        AddDoors(tilemap);
     }
 
     // TODO: generalize rules based on position better?

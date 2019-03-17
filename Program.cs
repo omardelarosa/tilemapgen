@@ -1,5 +1,5 @@
 ﻿using System;
-
+using System.Threading;
 namespace TilemapGen
 {
     class Program
@@ -11,18 +11,28 @@ namespace TilemapGen
             Console.WriteLine("---------------------------");
 
             PositionVector size = new PositionVector(64, 32);
-            PGCMap.MAX_SIMULATIONS_OF_TILEGEN = 1000;
+            PGCMap.MAX_SIMULATIONS_OF_TILEGEN = 1;
             PGCMap.TILE_DEATH_LIMIT = 3;
             PGCMap.TILE_BIRTH_LIMIT = 2;
-            PGCMap.BARRIER_PERCENTAGE = 30;
+            PGCMap.BARRIER_PERCENTAGE = 10;
             PGCMap m = new PGCMap(size);
             m.PrintPGCMap();
+            // // Auto
+            // while (true)
+            // {
+            //     Console.Clear();
+            //     m.RebuildFromState(m.tilemapState);
+            //     m.PrintPGCMap();
+            //     Thread.Sleep(100);
+            // }
 
             ConsoleKeyInfo cki = Program.Prompt();
             while (cki.Key == ConsoleKey.Enter)
             {
-                m = new PGCMap(size);
+                Console.Clear();
+                m.RebuildFromState(m.tilemapState);
                 m.PrintPGCMap();
+
                 // m.PrintGraphs();
                 cki = Program.Prompt();
             }
