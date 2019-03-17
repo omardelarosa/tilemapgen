@@ -36,6 +36,9 @@ public class PGCMap
     Dictionary<ETile, Graph2<Vector3Int>> graphsByTileType;
     Dictionary<string, List<Vector2Int>> _neighborsMemo;
     bool hasInitializedRNG = false;
+    int BARRIER_TILE = 1;
+    int SPACE_TILE = 0;
+
     public PGCMap(PositionVector size)
     {
         // Simulation parameters
@@ -60,15 +63,12 @@ public class PGCMap
             Console.WriteLine("Maximum path drawn! Ensure this is not an error.");
             return pos;
         }
-
+        var wallNeighbors = GetNeighborPositionsOfType(pos, ETile.Wall);
         // Case 1: Reached wall
-        if (counter > minRadius)
+        if (counter > minRadius && wallNeighbors.Count > 0)
         {
-            var wallNeighbors = GetNeighborPositionsOfType(pos, ETile.Wall);
-            if (wallNeighbors.Count > 0)
-            {
-                nextPos = wallNeighbors[0];
-            }
+            nextPos = wallNeighbors[0];
+            counter = maxIterations; // Terminate
         }
         // Case 2: no walls
         else
@@ -353,46 +353,82 @@ public class PGCMap
         return _graph;
     }
 
+    int[,] MakeRandomTilemapFromPositions(List<PositionVector> _positions)
+    {
+        int[,] _tilemap = new int[size.x, size.y];
+        foreach (PositionVector pos in _positions)
+        {
+            if (GetRandInt(0, 101) <= barrierFrequency)
+            {
+                // Set to barrier tile
+                _tilemap[pos.x, pos.y] = BARRIER_TILE;
+            }
+            else
+            {
+                // Set to spaces
+                _tilemap[pos.x, pos.y] = SPACE_TILE;
+            }
+        }
+        return _tilemap;
+    }
+
+    int[,] MakeEmptyTilemapFromPositions(List<PositionVector> _positions)
+    {
+        int[,] _tilemap = new int[size.x, size.y];
+        foreach (PositionVector pos in _positions)
+        {
+            // Set to spaces
+            _tilemap[pos.x, pos.y] = SPACE_TILE;
+        }
+        return _tilemap;
+    }
+
+    int[,] CloneTilemapFromPositions(int[,] tilemap, List<PositionVector> _positions)
+    {
+        int[,] _tilemap = new int[size.x, size.y];
+        foreach (PositionVector pos in _positions)
+        {
+            // Set to spaces
+            _tilemap[pos.x, pos.y] = tilemap[pos.x, pos.y];
+        }
+        return _tilemap;
+    }
+
+    void CopyTilemapFromPositions(int[,] sourceTilemap, int[,] targetTilemap, List<PositionVector> _positions)
+    {
+        foreach (PositionVector pos in _positions)
+        {
+            // Transfer
+            targetTilemap[pos.x, pos.y] = sourceTilemap[pos.x, pos.y];
+        }
+    }
+
+    void ClearTilemapFromPositions(int[,] _tilemap, List<PositionVector> _positions)
+    {
+        foreach (PositionVector pos in _positions)
+        {
+            // Set to spaces
+            _tilemap[pos.x, pos.y] = SPACE_TILE;
+        }
+    }
+
     // Runs a Conway's Game of Life-style simulation for tile PGC
-    int[,] RunSimulation()
+    int[,] RunSimulation(int[,] _lastTilemap)
     {
         // Fill Spaces based on Simple Tile Automata
         int BARRIER_TILE = 1;
         int SPACE_TILE = 0;
-        int[,] lastTilemap = new int[size.x, size.y];
-        int[,] currentTilemap = new int[size.x, size.y];
+        int[,] lastTilemap = CloneTilemapFromPositions(_lastTilemap, positions);
+        int[,] currentTilemap = MakeEmptyTilemapFromPositions(positions);
         var totalBarriers = 0;
-        // Console.WriteLine("PGC Map Parameter: %f: " + barrierFrequency + ", d: " + tileDeathLimit + " b: " + tileBirthLimit);
-        // Inits the tilemaps for swapping
-        foreach (PositionVector pos in positions)
-        {
-            // Set to spaces
-            currentTilemap[pos.x, pos.y] = SPACE_TILE;
-            lastTilemap[pos.x, pos.y] = SPACE_TILE;
-
-            if (GetRandInt(0, 101) <= barrierFrequency)
-            {
-                lastTilemap[pos.x, pos.y] = BARRIER_TILE;
-                totalBarriers += BARRIER_TILE;
-            }
-            else
-            {
-                lastTilemap[pos.x, pos.y] = 0;
-            }
-        }
 
         for (int i = 0; i < maxIterations; i++)
         {
             if (i > 0)
             {
                 // Swaps tiles between both maps, preventing tile map creation at each step
-                foreach (PositionVector pos in positions)
-                {
-                    int prevTile = currentTilemap[pos.x, pos.y]; // Gets tile to swap
-                    lastTilemap[pos.x, pos.y] = prevTile; // Moves to last tilemap
-                    currentTilemap[pos.x, pos.y] = SPACE_TILE; // Clears current
-                }
-                totalBarriers = 0;
+                CopyTilemapFromPositions(currentTilemap, lastTilemap, positions);
+                ClearTilemapFromPositions(currentTilemap, positions);
             }
 
             // Adds barriers
@@ -466,7 +502,8 @@ public class PGCMap
     }
     void FillPGCMap()
     {
-        int[,] spaces = RunSimulation();
+        int[,] randomTiles = MakeRandomTilemapFromPositions(positions);
+        int[,] spaces = RunSimulation(randomTiles);
         // Populate map based on simulation results
         foreach (var pos in positions)
         {
