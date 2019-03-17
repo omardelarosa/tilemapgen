@@ -10,7 +10,11 @@ namespace TilemapGen
             Console.WriteLine("-- Map Generator: v0.0.1 --");
             Console.WriteLine("---------------------------");
 
-            PositionVector size = new PositionVector(32, 16);
+            PositionVector size = new PositionVector(64, 32);
+            PGCMap.MAX_SIMULATIONS_OF_TILEGEN = 300;
+            PGCMap.TILE_DEATH_LIMIT = 3;
+            PGCMap.TILE_BIRTH_LIMIT = 2;
+            PGCMap.BARRIER_PERCENTAGE = 20;
             PGCMap m = new PGCMap(size);
             m.PrintPGCMap();
 

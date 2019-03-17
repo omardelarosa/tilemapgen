@@ -1,121 +1,157 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class PGCMap
 {
     public const string PADDING = " ";
-    public const int BARRIER_PERCENTAGE = 30;
+    public static int TILE_DEATH_LIMIT = 2;
+    public static int TILE_BIRTH_LIMIT = 3;
+    public static int MAX_SIMULATIONS_OF_TILEGEN = 20;
+    public static int BARRIER_PERCENTAGE = 50;
     public int rebuilds = 0;
     public const int MAX_REBUILDS = 5;
 
-    List<List<ETile>> ETilePGCMap;
-    List<List<Node>> nodePGCMap;
-    List<PositionVector> positions;
-    List<PositionVector> borderPositions;
-    List<PositionVector> exitPositions;
-    PathData<Node> pathData;
+    public List<List<ETile>> tilemap;
+    public bool hasPath;
+    public List<PositionVector> positions;
+    public List<PositionVector> borderPositions;
+    public List<Vector2Int> exitPositions;
+    public List<Vector2Int> doorPositions;
+    public List<Vector2Int> validEntityPositions;
     private PositionVector size;
+    private List<Vector2Int> _barriersMemo = new List<Vector2Int>();
     private int numDoors;
     private int _doorsPlaced = 0;
-    private Node nullNode;
+
+    // TileAutomata Values
+    private int tileDeathLimit;
+    private int tileBirthLimit;
+    private int maxIterations;
+    private int barrierFrequency;
+    private System.Random random;
+
     private PositionVector nullPos;
-    Dictionary<ETile, Graph<Node>> graphs;
-    Random r;
+    private int[,] nidsByPos;
+    Dictionary<ETile, Graph2<Vector3Int>> graphsByTileType;
+    Dictionary<string, List<Vector2Int>> _neighborsMemo;
+    bool hasInitializedRNG = false;
     public PGCMap(PositionVector size)
     {
+        // Simulation parameters
+        tileDeathLimit = TILE_DEATH_LIMIT;
+        tileBirthLimit = TILE_BIRTH_LIMIT;
+        maxIterations = MAX_SIMULATIONS_OF_TILEGEN;
+        barrierFrequency = BARRIER_PERCENTAGE;
+
         OnInit(size);
-        rebuilds = 0;
-        while (exitPositions.Count < 2 && rebuilds <= MAX_REBUILDS)
+    }
+
+    Vector2Int GeneratePathFrom(Vector2Int pos, int counter, int max, int minRadius)
+    {
+        // Go in random direction until a wall is encountered, place a door when wall is found.
+
+        // No movement by default
+        Vector2Int nextPos = pos;
+        // Base case:  Stop looping
+        if (counter >= max)
         {
-            OnInit(size);
-            rebuilds += 1;
+            Console.WriteLine("Counter " + counter);
+            Console.WriteLine("Maximum path drawn! Ensure this is not an error.");
+            return pos;
         }
 
-        if (rebuilds == MAX_REBUILDS)
+        // Case 1: Reached wall
+        if (counter > minRadius)
         {
-            Console.WriteLine("Unable to build valid map after " + MAX_REBUILDS + " rebuilds.");
-        }
-
-        bool hasPath = BuildPath();
-
-        if (hasPath)
-        {
-            Console.WriteLine("Has a path!");
-            PositionVector target = exitPositions[1];
-            var n = NGet(target.x, target.y);
-            var nid = n.GetGuid();
-            var path = pathData.GetPathGuidsFrom(nid);
-            foreach (Guid nidOnPath in path)
+            var wallNeighbors = GetNeighborPositionsOfType(pos, ETile.Wall);
+            if (wallNeighbors.Count > 0)
             {
-                var nodeInPath = graphs[ETile.Space].Find(nidOnPath);
-                var pos = nodeInPath.Read();
-                MSet(pos.x, pos.y, ETile.Path);
+                nextPos = wallNeighbors[0];
             }
         }
+        // Case 2: no walls
         else
         {
-            Console.WriteLine("No path found!");
+            var neighboringBarriers = GetNeighborPositionsOfType(pos, ETile.Barrier);
+            // Case 2A: No barriers nearby, keep going
+            if (neighboringBarriers.Count == 0)
+            {
+                // Get space neighbors, go in random direction, recurse
+                var neighbors = GetNeighborPositions(pos);
+                int randIdx = GetRandInt(0, neighbors.Count);
+                nextPos = neighbors[randIdx];
+            }
+            else
+            {
+                // Remove barrier, set its former position to loop
+                int randIdx = GetRandInt(0, neighboringBarriers.Count);
+                nextPos = neighboringBarriers[randIdx];
+                MSet(nextPos.x, nextPos.y, ETile.Space, tilemap);
+            }
         }
-    }
 
-    bool BuildPath()
-    {
-        if (exitPositions.Count < 2)
-        {
-            return false;
-        }
-        PositionVector source = exitPositions[0];
-        PositionVector target = exitPositions[1];
-        var graph = graphs[ETile.Space];
-        var sourceNode = NGet(source.x, source.y);
-        var targetNode = NGet(target.x, target.y);
-        var pd = graph.Dijkstra(sourceNode, targetNode);
-        bool hasPath = pd.HasPathTo(targetNode.GetGuid());
-        pathData = pd;
-        if (hasPath)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    void HighlightPath()
-    {
-
+        // Draw Path
+        MSet(pos.x, pos.y, ETile.Path, tilemap);
+        // Recurse
+        return GeneratePathFrom(nextPos, counter + 1, max, minRadius);
     }
 
     void Reset()
     {
-        r = new Random();
+        GetRandInt(0, 10); // Initializes RNG state
         // Initialize containers, static values
         positions = new List<PositionVector>();
         borderPositions = new List<PositionVector>();
-        exitPositions = new List<PositionVector>();
+        exitPositions = new List<Vector2Int>();
+        doorPositions = new List<Vector2Int>();
+        validEntityPositions = new List<Vector2Int>();
         _doorsPlaced = 0;
+    }
+
+    public int GetRandInt(int low, int high)
+    {
+        if (!hasInitializedRNG)
+        {
+            random = new System.Random();
+            // int seed = (int)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            // Console.WriteLine("Random Seed: " + seed);
+            // UnityEngine.Random.InitState(seed); // TODO: make this seed configurable
+            hasInitializedRNG = true;
+        }
+        return random.Next(low, high);
     }
 
     void OnInit(PositionVector size)
     {
-        r = new Random();
         // Initialize containers, static values
         Reset();
-        numDoors = r.Next(2, 3); // ensures 2 doors. // or 1 to 4 doors
+        numDoors = GetRandInt(2, 3); // ensures 2 doors. // or 1 to 4 doors
         nullPos = PositionVector.NULL_POSITION;
-        nullNode = Node.NULL_NODE;
         // Populate PGCMap
-        BuildEmptyPGCMap(size);
-        BuildEmptyNodePGCMap(size);
+        tilemap = BuildEmptyPGCMap(size);
         FillPGCMap();
-        graphs = MakeGraphs(); // Make graph of ETile relationships
         SetExitPositions();
-        Console.WriteLine("Dims: " + ETilePGCMap.Count + "rows x " + ETilePGCMap[0].Count + "cols");
-        Console.WriteLine("Exits: " + exitPositions.Count);
+
+        // Build Graphs of TileTypes
+        graphsByTileType = BuildAllGraphs();
     }
 
-    public ETile MGet(int x, int y)
+    Dictionary<ETile, Graph2<Vector3Int>> BuildAllGraphs()
+    {
+        // Build Graphs of TileTypes
+        Dictionary<ETile, Graph2<Vector3Int>> _graphsByTileType = new Dictionary<ETile, Graph2<Vector3Int>>();
+
+        foreach (ETile et in Enum.GetValues(typeof(ETile)))
+        {
+            var graph = MakeGraphFromPositionsListForTileType(positions, et);
+            _graphsByTileType.Add(et, graph);
+        }
+
+        return _graphsByTileType;
+    }
+
+    public ETile MGet(int x, int y, List<List<ETile>> _tilemap)
     {
         if (x < 0 || y < 0 || x >= size.x || y >= size.y)
         {
@@ -123,42 +159,16 @@ public class PGCMap
         }
         else
         {
-            return ETilePGCMap[y][x];
+            return _tilemap[y][x];
         }
     }
 
-    public bool MSet(int x, int y, ETile t)
+    public bool MSet(int x, int y, ETile t, List<List<ETile>> _tilemap)
     {
-        bool isValidETile = MGet(x, y) != ETile.OutOfBoundsETile;
+        bool isValidETile = MGet(x, y, _tilemap) != ETile.OutOfBoundsETile;
         if (isValidETile)
         {
-            ETilePGCMap[y][x] = t;
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    public Node NGet(int x, int y)
-    {
-        if (x < 0 || y < 0 || x >= size.x || y >= size.y)
-        {
-            return nullNode;
-        }
-        else
-        {
-            return nodePGCMap[y][x];
-        }
-    }
-
-    public bool NSet(int x, int y, Node n)
-    {
-        bool isValidETile = MGet(x, y) != ETile.NullETile;
-        if (isValidETile)
-        {
-            nodePGCMap[y][x] = n;
+            _tilemap[y][x] = t;
             return true;
         }
         else
@@ -169,56 +179,30 @@ public class PGCMap
 
     void SetExitPositions()
     {
-        // No doors.
-        if (!graphs.ContainsKey(ETile.Door))
-        {
-            exitPositions = new List<PositionVector>();
-            return;
-        }
         // Determine paths
-        List<Node> doors = graphs[ETile.Door].nodesList;
-        exitPositions = new List<PositionVector>();
-        foreach (Node d in doors)
+        exitPositions = new List<Vector2Int>();
+        foreach (var p in doorPositions)
         {
-            Node adjacentNodeToDoor = GetDoorNeighborSpaces(d);
-
-            if (adjacentNodeToDoor != null)
+            List<Vector2Int> doorNeighbors = GetNeighborPositionsOfType(p, ETile.Path);
+            if (doorNeighbors.Count > 0)
             {
-                PositionVector nPos = adjacentNodeToDoor.Read();
-                MSet(nPos.x, nPos.y, ETile.Path); // Mark as path
+                Vector2Int nPos = doorNeighbors[0];
+                MSet(nPos.x, nPos.y, ETile.Space, tilemap); // Mark as path
                 exitPositions.Add(nPos);
+                validEntityPositions.Remove(nPos);
             }
             else
             {
-                Console.WriteLine("Blocked door at: " + d.Read());
+                Console.WriteLine("Blocked door at: " + p);
             }
         }
     }
-
-    void BuildEmptyNodePGCMap(PositionVector s)
+    List<List<ETile>> BuildEmptyPGCMap(PositionVector s)
     {
         int x = s.x;
         int y = s.y;
         size = s;
-        nodePGCMap = new List<List<Node>>();
-        // Rows
-        for (int i = 0; i < y; i++)
-        {
-            List<Node> row = new List<Node>();
-            // Cols
-            for (int j = 0; j < x; j++)
-            {
-                row.Add(nullNode);
-            }
-            nodePGCMap.Add(row);
-        }
-    }
-    void BuildEmptyPGCMap(PositionVector s)
-    {
-        int x = s.x;
-        int y = s.y;
-        size = s;
-        ETilePGCMap = new List<List<ETile>>();
+        var tilemap = new List<List<ETile>>();
         // Rows
         for (int i = 0; i < y; i++)
         {
@@ -236,172 +220,335 @@ public class PGCMap
                     borderPositions.Add(pos);
                 }
             }
-            ETilePGCMap.Add(row);
+            tilemap.Add(row);
         }
+        return tilemap;
     }
-    public Dictionary<Guid, List<Guid>> BuildAdjacencyList(List<Node> nodes, ETile t)
+    List<Vector2Int> GetDoorNeighborSpaces(Vector2Int doorPos)
     {
-        var edges = new Dictionary<Guid, List<Guid>>();
-        foreach (Node n in nodes)
+        var neighbors = GetNeighborPositions(doorPos);
+        List<Vector2Int> spaceNeighbors = new List<Vector2Int>();
+        foreach (var n in neighbors)
         {
-            if (n != null)
+            ETile nt = MGet(n.x, n.y, tilemap);
+            if (nt == ETile.Space)
             {
-                var neighbors = GetNeighborGuids(n, t);
-                edges.Add(n.GetGuid(), neighbors);
+                spaceNeighbors.Add(n);
             }
         }
-        return edges;
+        return spaceNeighbors;
+    }
+    List<Vector2Int> GetNeighborPositions(Vector2Int pos)
+    {
+        // TODO: get rid of this interface
+        return GetNeighborPositions(new PositionVector(pos.x, pos.y));
     }
 
-    Node GetDoorNeighborSpaces(Node door)
+    List<Vector2Int> GetNeighborPositions(PositionVector pos)
     {
-        var neighbors = GetNeighborGuids(door, ETile.Space);
-        if (neighbors.Count == 0)
+        // Create memoization container
+        if (_neighborsMemo == null)
         {
-            // Blocked in door
+            _neighborsMemo = new Dictionary<string, List<Vector2Int>>();
+        }
+        if (_neighborsMemo.ContainsKey(pos.key))
+        {
+            return _neighborsMemo[pos.key];
+        }
+
+        BoundsInt bounds = new BoundsInt(-1, -1, 0, 3, 3, 1); // Makes a box.
+        List<Vector2Int> neighborPositions = new List<Vector2Int>();
+        // Check all adjacent positions
+        foreach (var bi in bounds.allPositionsWithin)
+        {
+            // Exclude self
+            if (bi.x != 0 && bi.y != 0)
+            {
+                int xp = pos.x + bi.x;
+                int yp = pos.y + bi.y;
+                // Exclude outer neighbors
+                if (xp >= 0 && xp < size.x && yp >= 0 && yp < size.y)
+                {
+                    neighborPositions.Add(new Vector2Int(pos.x + bi.x, pos.y + bi.y));
+                }
+            }
+        }
+        // Memoize neighbors to avoid list creation
+        _neighborsMemo.Add(pos.key, neighborPositions);
+
+        return neighborPositions;
+    }
+
+    List<Vector2Int> GetNeighborPositionsOfType(Vector2Int pos, ETile et)
+    {
+        var neighbors = GetNeighborPositions(pos);
+        // No neighbors
+        if (neighbors == null)
+        {
             return null;
         }
-        else
+
+        // Filter neighbors
+        List<Vector2Int> filteredNeighbors = new List<Vector2Int>();
+        foreach (var n in neighbors)
         {
-            Guid nid = neighbors[0]; // get first neighbor
-            var node = graphs[ETile.Space].Find(nid);
-            return node;
+            ETile tile = MGet(n.x, n.y, tilemap);
+            if (tile == et)
+            {
+                filteredNeighbors.Add(n);
+            }
         }
+
+        return filteredNeighbors;
     }
 
-    List<Guid> GetNeighborGuids(Node node, ETile t)
+    public Graph2<Vector3Int> MakeGraphFromPositionsListForTileType(List<PositionVector> _positions, ETile tileType)
     {
-        List<Guid> neighbors = new List<Guid>();
-        List<PositionVector> neighborPositions = new List<PositionVector>();
-        PositionVector pos = node.Read();
-        // Check above
-        neighborPositions.Add(new PositionVector(pos.x - 1, pos.y)); // left
-        neighborPositions.Add(new PositionVector(pos.x + 1, pos.y)); // right
-        neighborPositions.Add(new PositionVector(pos.x, pos.y - 1)); // up
-        neighborPositions.Add(new PositionVector(pos.x, pos.y + 1)); // down
+        List<int> nodes = new List<int>();
+        Dictionary<int, List<int>> edges = new Dictionary<int, List<int>>();
+        int ids = 0;
+        Graph2<Vector3Int> _graph = new Graph2<Vector3Int>(nodes, edges);
 
-        foreach (PositionVector nPos in neighborPositions)
+        // This only needs to be made once
+        nidsByPos = new int[size.x, size.y];
+
+        // Make nodes
+        foreach (PositionVector p in _positions)
         {
-            // Check if neighbor is of same ETiletype
-            if (MGet(nPos.x, nPos.y) == t)
-            {
-                var n = NGet(nPos.x, nPos.y);
-                if (n != null)
-                {
-                    neighbors.Add(n.GetGuid());
-                }
-                else
-                {
-                    Console.WriteLine("NO NODE AT POSITION: " + nPos);
-                }
-                // Adds GUID for node to neighbors
-
-            }
+            nodes.Add(ids); // Adds node to graph
+            _graph.SetData(ids, p.vec); // Adds vector data to node
+            nidsByPos[p.x, p.y] = ids;
+            ids += 1;
         }
-        return neighbors;
+
+        // Make edges based on tile type
+        foreach (PositionVector p in _positions)
+        {
+            var neighbors = GetNeighborPositions(p); // TODO: support neighbor filtering by type
+            int pid = nidsByPos[p.x, p.y];
+            List<int> nids = new List<int>();
+            foreach (var n in neighbors)
+            {
+                int nid = 0;
+                try
+                {
+                    nid = nidsByPos[n.x, n.y];
+                }
+                catch (System.Exception ex)
+                {
+                    // Detects invalid positions
+                    Console.WriteLine("INVALID POS: " + n);
+                    throw ex;
+                }
+
+                ETile tileAtNode = MGet(n.x, n.y, tilemap);
+                if (tileAtNode == tileType)
+                {
+                    nids.Add(nid);
+                }
+            }
+            edges.Add(pid, nids);
+        }
+
+        return _graph;
     }
 
-    public Dictionary<ETile, Graph<Node>> MakeGraphs()
+    // Runs a Conway's Game of Life-style simulation for tile PGC
+    int[,] RunSimulation()
     {
-        IDictionary<ETile, List<Node>> nodes = new Dictionary<ETile, List<Node>>();
-        IDictionary<ETile, Dictionary<Guid, List<Guid>>> edges = new Dictionary<ETile, Dictionary<Guid, List<Guid>>>();
-
-        // Making NullETile
-        nodes.Add(ETile.NullETile, new List<Node>());
-        // Making DoorETile
-        nodes.Add(ETile.Door, new List<Node>());
-
-        foreach (PositionVector p in positions)
+        // Fill Spaces based on Simple Tile Automata
+        int BARRIER_TILE = 1;
+        int SPACE_TILE = 0;
+        int[,] lastTilemap = new int[size.x, size.y];
+        int[,] currentTilemap = new int[size.x, size.y];
+        var totalBarriers = 0;
+        // Console.WriteLine("PGC Map Parameter: %f: " + barrierFrequency + ", d: " + tileDeathLimit + " b: " + tileBirthLimit);
+        // Inits the tilemaps for swapping
+        foreach (PositionVector pos in positions)
         {
-            ETile t = MGet(p.x, p.y);
-            Node n = new Node(p);
-            if (!nodes.ContainsKey(t))
-            {
-                nodes.Add(t, new List<Node>()); // create nodelist
-            }
-            var list = nodes[t];
-            if (list == null)
-            {
-                nodes[t] = new List<Node>();
-                list = nodes[t];
-            }
-            NSet(p.x, p.y, n); // Adds node to node PGCMap
-            list.Add(n);
-        }
+            // Set to spaces
+            currentTilemap[pos.x, pos.y] = SPACE_TILE;
+            lastTilemap[pos.x, pos.y] = SPACE_TILE;
 
-        Dictionary<ETile, Graph<Node>> graphs = new Dictionary<ETile, Graph<Node>>();
-
-        foreach (ETile t in nodes.Keys)
-        {
-            var nList = nodes[t];
-            if (t != ETile.NullETile)
+            if (GetRandInt(0, 101) <= barrierFrequency)
             {
-                var eDict = BuildAdjacencyList(nList, t);
-                edges.Add(t, eDict);
-                Graph<Node> g = new Graph<Node>(nList, eDict);
-                graphs.Add(t, g);
+                lastTilemap[pos.x, pos.y] = BARRIER_TILE;
+                totalBarriers += BARRIER_TILE;
             }
             else
             {
-                if (nList != null && nList.Count > 0)
+                lastTilemap[pos.x, pos.y] = 0;
+            }
+        }
+
+        for (int i = 0; i < maxIterations; i++)
+        {
+            if (i > 0)
+            {
+                // Swaps tiles between both maps, preventing tile map creation at each step
+                foreach (PositionVector pos in positions)
                 {
-                    Console.WriteLine("Warning: " + nList.Count + " null ETiles exist!");
+                    int prevTile = currentTilemap[pos.x, pos.y]; // Gets tile to swap
+                    lastTilemap[pos.x, pos.y] = prevTile; // Moves to last tilemap
+                    currentTilemap[pos.x, pos.y] = SPACE_TILE; // Clears current
                 }
+                totalBarriers = 0;
             }
 
+            // Adds barriers
+            foreach (PositionVector pos in positions)
+            {
+                var neighbors = GetNeighborPositions(pos);
+                int lastTile = lastTilemap[pos.x, pos.y];
+                int nextTile = lastTile;
+                // Count living neighbors
+                int numLivingNeighbors = 0;
+
+                foreach (var n in neighbors)
+                {
+                    // Ignore out of bounds neighbors
+                    if (n.x < 0 || n.y < 0 || n.x >= size.x || n.y >= size.y)
+                    {
+                        // Treat out of bounds as a barrier
+                        numLivingNeighbors = BARRIER_TILE;
+                        numLivingNeighbors += 1;
+                        continue;
+                    }
+                    int neighborTile = lastTilemap[n.x, n.y];
+                    if (neighborTile == 1)
+                    {
+                        numLivingNeighbors += 1;
+                    }
+                }
+
+                // Case 1
+                if (lastTile == BARRIER_TILE)
+                {
+                    // Should be dead on next map, too many neighbors
+                    if (numLivingNeighbors < tileDeathLimit)
+                    {
+                        nextTile = SPACE_TILE;
+                    }
+                    else
+                    {
+                        nextTile = BARRIER_TILE;
+                    }
+                }
+
+                // Case 2:
+                if (lastTile == SPACE_TILE)
+                {
+                    // Should be born on next map because too few neighbors
+                    if (numLivingNeighbors < tileBirthLimit)
+                    {
+                        nextTile = BARRIER_TILE;
+                    }
+                    else
+                    {
+                        nextTile = SPACE_TILE;
+                    }
+                }
+
+                // Keep track of population
+                if (nextTile == BARRIER_TILE)
+                {
+                    totalBarriers += 1;
+                }
+                else
+                {
+                    totalBarriers -= 1;
+                }
+                currentTilemap[pos.x, pos.y] = nextTile;
+            }
         }
 
-        return graphs;
-        // TODO: make graph for all parts.
+        return currentTilemap;
     }
-
     void FillPGCMap()
     {
-        // Adds barriers
-        foreach (PositionVector pos in positions)
+        int[,] spaces = RunSimulation();
+        // Populate map based on simulation results
+        foreach (var pos in positions)
         {
-            FillAtPosition(pos);
+            int spaceVal = spaces[pos.x, pos.y];
+            if (spaceVal == 0)
+            {
+                MSet(pos.x, pos.y, ETile.Space, tilemap);
+            }
+            else
+            {
+                MSet(pos.x, pos.y, ETile.Barrier, tilemap);
+                _barriersMemo.Add(new Vector2Int(pos.x, pos.y));
+            }
         }
+        // Reset tilemap var using new tilemap
 
         // Adds doors to border positions
-        AddDoors();
+        AddWalls(tilemap);
+        AddDoors(tilemap);
     }
 
     // TODO: generalize rules based on position better?
-    void FillAtPosition(PositionVector pos)
+    void FillAtPosition(PositionVector pos, List<List<ETile>> tilemap)
     {
+        // Count neighbors
+
         if (IsBorder(pos))
         {
-            MSet(pos.x, pos.y, ETile.Wall);
+            MSet(pos.x, pos.y, ETile.Wall, tilemap);
         }
-        else if (IsRandomBarrier())
+        else if (IsRandomBarrier(pos))
         {
-            MSet(pos.x, pos.y, ETile.Barrier);
+            MSet(pos.x, pos.y, ETile.Barrier, tilemap);
         }
         else
         {
-            MSet(pos.x, pos.y, ETile.Space);
+            // TODO: put this somewhere else
+            validEntityPositions.Add(new Vector2Int(pos.x, pos.y));
+            MSet(pos.x, pos.y, ETile.Space, tilemap);
         }
     }
 
-    void AddDoors()
+    void AddDoors(List<List<ETile>> tilemap)
     {
         int numBorderPositions = borderPositions.Count;
 
-        while (_doorsPlaced < numDoors)
+        int randBorderPosIdx = GetRandInt(0, numBorderPositions);
+
+        PositionVector startDoorPos = borderPositions[randBorderPosIdx];
+
+        // Set start position to door tile
+        MSet(startDoorPos.x, startDoorPos.y, ETile.Door, tilemap);
+        int maxPath = size.x * size.y;
+        Console.WriteLine("Generate path of max size: " + maxPath);
+        Vector2Int startDoorPosVector = new Vector2Int(startDoorPos.x, startDoorPos.y);
+        Vector2Int exitDoor = GeneratePathFrom(startDoorPosVector, 0, maxPath, 10);
+
+        // Set exit position to door tile
+        MSet(exitDoor.x, exitDoor.y, ETile.Door, tilemap);
+
+        if (Vector2Int.Equals(startDoorPos, exitDoor))
         {
-            int rIdx = r.Next(0, numBorderPositions);
-            PositionVector randomPos = borderPositions[rIdx];
-            ETile t = MGet(randomPos.x, randomPos.y);
-            if (t != ETile.Door)
+            throw new System.Exception("No path made!");
+        }
+        else
+        {
+            doorPositions.Add(startDoorPosVector);
+            doorPositions.Add(exitDoor);
+            Console.WriteLine("Doors added: " + startDoorPosVector + ", " + exitDoor);
+        }
+    }
+
+    void AddWalls(List<List<ETile>> tilemap)
+    {
+        Console.WriteLine("Adding walls " + borderPositions.Count);
+        foreach (var pos in borderPositions)
+        {
+            if (IsBorder(pos))
             {
-                MSet(randomPos.x, randomPos.y, ETile.Door);
-                _doorsPlaced += 1;
+                MSet(pos.x, pos.y, ETile.Wall, tilemap);
             }
         }
-
-        // TODO: take out debug logic
-        Console.WriteLine("Doors: " + numDoors + " DoorsPlace: " + _doorsPlaced);
     }
 
     bool IsBorder(PositionVector pos)
@@ -413,10 +560,17 @@ public class PGCMap
         return false;
     }
 
-    bool IsRandomBarrier()
+    bool IsRandomBarrier(PositionVector pos)
     {
-        int rInt = r.Next(0, 101);
-        if (rInt <= BARRIER_PERCENTAGE)
+        // TODO: enable a safe mode?
+        // // Avoids edges to make levels not impossible. // TODO: make this unnecessary
+        // if (pos.x == 1 || pos.x == size.x - 2 || pos.y == 1 || pos.y == size.y - 2)
+        // {
+        //     return false;
+        // }
+
+        int rInt = GetRandInt(0, 101);
+        if (rInt <= barrierFrequency)
         {
             return true;
         }
@@ -446,8 +600,7 @@ public class PGCMap
                 return "?";
         }
     }
-
-    public override string ToString()
+    public string StringifyTilemap(List<List<ETile>> _tilemap)
     {
         int x = size.x;
         int y = size.y;
@@ -458,11 +611,34 @@ public class PGCMap
             string line = "";
             for (int j = 0; j < x; j++)
             {
-                line = line + ETileToString(MGet(j, i)) + PADDING;
+                line = line + ETileToString(MGet(j, i, _tilemap)) + PADDING;
             }
             str = str + line + "\n";
         }
         return str;
+    }
+
+    public string StringifyTilemap(int[,] _tilemap)
+    {
+        int x = size.x;
+        int y = size.y;
+
+        string str = "";
+        for (int i = 0; i < y; i++)
+        {
+            string line = "";
+            for (int j = 0; j < x; j++)
+            {
+                line = line + _tilemap[j, i];
+            }
+            str = str + line + "\n";
+        }
+        return str;
+    }
+
+    public override string ToString()
+    {
+        return StringifyTilemap(tilemap);
     }
 
     public static void PrintPGCMap(PGCMap m)
@@ -473,23 +649,4 @@ public class PGCMap
     {
         PGCMap.PrintPGCMap(this);
     }
-
-    public static void PrintGraphs(PGCMap m)
-    {
-        foreach (ETile t in m.graphs.Keys)
-        {
-            Graph<Node> g = m.graphs[t];
-            if (g != null)
-            {
-                g.PrintNodes();
-            }
-        }
-    }
-
-    public void PrintGraphs()
-    {
-        PGCMap.PrintGraphs(this);
-    }
-
-
 }

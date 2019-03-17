@@ -1,14 +1,49 @@
 {
   "runtimeTarget": {
     "name": ".NETCoreApp,Version=v2.2",
-    "signature": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    "signature": "a77c74f5246ce9ea0eb2b88b1cf5d3249c9e69ac"
   },
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v2.2": {
       "TilemapGen/1.0.0": {
+        "dependencies": {
+          "Unity": "5.9.7",
+          "Unity3D.UnityEngine": "2018.3.5.1"
+        },
         "runtime": {
           "TilemapGen.dll": {}
+        }
+      },
+      "System.Runtime.CompilerServices.Unsafe/4.5.2": {
+        "runtime": {
+          "lib/netcoreapp2.0/System.Runtime.CompilerServices.Unsafe.dll": {
+            "assemblyVersion": "4.0.4.1",
+            "fileVersion": "4.0.0.0"
+          }
+        }
+      },
+      "Unity/5.9.7": {
+        "dependencies": {
+          "System.Runtime.CompilerServices.Unsafe": "4.5.2"
+        },
+        "runtime": {
+          "lib/netcoreapp2.0/Unity.Abstractions.dll": {
+            "assemblyVersion": "4.1.0.0",
+            "fileVersion": "4.1.0.0"
+          },
+          "lib/netcoreapp2.0/Unity.Container.dll": {
+            "assemblyVersion": "5.9.7.0",
+            "fileVersion": "5.9.7.0"
+          }
+        }
+      },
+      "Unity3D.UnityEngine/2018.3.5.1": {
+        "runtime": {
+          "lib/UnityEngine.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
         }
       }
     }
@@ -18,6 +53,27 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "System.Runtime.CompilerServices.Unsafe/4.5.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hMkdWxksypQlFXB7JamQegDscxEAQO4FHd/lw/zlSZU9dZgAij65xjCrXer183wvoNAzJic5zzjj2oc9/dloWg==",
+      "path": "system.runtime.compilerservices.unsafe/4.5.2",
+      "hashPath": "system.runtime.compilerservices.unsafe.4.5.2.nupkg.sha512"
+    },
+    "Unity/5.9.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mAytlOJqpFsfPXgHejIWRigbunhDmBniSO/tSjvfRz9DTuOaTzqDdEbe/c4zJqSvhLLnsq7eDW6nTu1g76iASA==",
+      "path": "unity/5.9.7",
+      "hashPath": "unity.5.9.7.nupkg.sha512"
+    },
+    "Unity3D.UnityEngine/2018.3.5.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-045QFtbJKg4O5kgN4AEHIk/bXLbgZ7lApUcYprs74/9zB+JpM7SgF/5XmwtsYmUcWSyGPrwznEvBwyr0MdQizA==",
+      "path": "unity3d.unityengine/2018.3.5.1",
+      "hashPath": "unity3d.unityengine.2018.3.5.1.nupkg.sha512"
     }
   }
 }

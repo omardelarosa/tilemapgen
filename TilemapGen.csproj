@@ -6,4 +6,9 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Unity" Version="5.9.7" />
+    <PackageReference Include="Unity3D.UnityEngine" Version="2018.3.5.1" />
+  </ItemGroup>
+
 </Project>
